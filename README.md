@@ -65,6 +65,9 @@
 | 回答问题 | `collector.role` | 题目 + 参考答案 |
 | 短文复述 | `collector.picture` | 复述要点 + 参考原文 |
 | 提问 | `collector.role` | 中文提示 + 参考问句 |
+| 单词跟读 | `collector.word` | 单词 + 释义 + 音标 |
+| 短文跟读 | `collector.repeat_essay` | 第 X 句 + 原文 + 翻译 |
+| 对话跟读 | `collector.repeat_dialogue` | 第 X 句 + 原文 + 翻译 |
 
 ## ⚠️ 注意事项
 
