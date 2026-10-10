@@ -148,10 +148,7 @@
     padding: 8px 12px; margin-bottom: 10px;
     background: var(--q-bg);
   }
-  .q-title {
-    font-weight: bold; margin-bottom: 6px;
-    color: var(--fg); font-size: 13px;
-  }
+  .q-title { font-weight: bold; margin-bottom: 6px; color: var(--fg); font-size: 13px; }
   .q-answers { font-size: 13px; color: var(--muted); line-height: 1.7; }
   .q-answers .ans {
     display: inline-block;
@@ -177,8 +174,6 @@
   }
   .meta { font-size: 12px; color: var(--faint); margin-top: 4px; }
   .paper-info { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-
-  /* 搜索框 */
   .search-bar {
     display: flex; gap: 8px; align-items: center;
     margin-top: 10px; margin-bottom: 10px;
@@ -189,12 +184,8 @@
     background: var(--panel); color: var(--fg);
     font-size: 14px;
   }
-  .search-bar input:focus {
-    outline: none; border-color: var(--accent);
-  }
+  .search-bar input:focus { outline: none; border-color: var(--accent); }
   .search-bar .count { font-size: 12px; color: var(--faint); }
-
-  /* 听力原文折叠 */
   .orig-block {
     margin-top: 8px;
     border: 1px solid var(--border); border-radius: 4px;
@@ -208,22 +199,16 @@
   }
   .orig-toggle:hover { background: var(--accent-soft); }
   .orig-toggle::before {
-    content: "▶"; font-size: 10px;
-    transition: transform .15s;
+    content: "▶"; font-size: 10px; transition: transform .15s;
   }
-  .orig-block.open .orig-toggle::before {
-    transform: rotate(90deg);
-  }
+  .orig-block.open .orig-toggle::before { transform: rotate(90deg); }
   .orig-content {
     display: none; padding: 10px 12px;
     font-size: 13px; line-height: 1.8;
-    color: var(--muted);
-    background: var(--panel);
+    color: var(--muted); background: var(--panel);
     white-space: pre-wrap;
   }
   .orig-block.open .orig-content { display: block; }
-
-  /* 深色模式按钮 */
   #themeBtn { margin-left: auto; }
 </style>
 </head>
@@ -300,6 +285,31 @@
 </div>
 
 <script>
+/* ========== 主题：打开页面时按系统深浅色 ========== */
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.body.classList.add('dark');
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.textContent = '☀️ 浅色';
+  } else {
+    document.body.classList.remove('dark');
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.textContent = '🌙 深色';
+  }
+}
+
+// 立即应用（body 可能还没出来，先设到 documentElement 上）
+(function () {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
+  if (prefersDark) document.documentElement.classList.add('dark');
+})();
+
+// 系统主题变化时跟随
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  applyTheme(e.matches ? 'dark' : 'light');
+});
+
 const folderInput = document.getElementById('folderInput');
 const drop = document.getElementById('drop');
 const paperTabs = document.getElementById('paperTabs');
@@ -323,22 +333,17 @@ let currentPaperIdx = 0;
 let checkedPapers = new Set();
 let currentKeyword = '';
 
-/* ---------- 深色模式 ---------- */
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.body.classList.add('dark');
-    themeBtn.textContent = '☀️ 浅色';
-  } else {
-    document.body.classList.remove('dark');
-    themeBtn.textContent = '🌙 深色';
-  }
-  localStorage.setItem('ets-theme', theme);
-}
+// 页面 DOM 就绪后，把主题同步到 body 和按钮文字
+window.addEventListener('DOMContentLoaded', () => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+});
+
+// 按钮：临时切换（刷新后回到系统设置）
 themeBtn.addEventListener('click', () => {
   const isDark = document.body.classList.contains('dark');
   applyTheme(isDark ? 'light' : 'dark');
 });
-applyTheme(localStorage.getItem('ets-theme') || 'light');
 
 function copyPath(el) {
   navigator.clipboard.writeText(el.textContent).then(() => {
@@ -523,13 +528,9 @@ function renderCurrentPaper() {
 
     sec.questions.forEach((q, qi) => {
       totalCount++;
-      // 搜索过滤
       if (currentKeyword) {
         const hay = [
-          q.ask || '',
-          q.text || '',
-          q.keypoint || '',
-          ...(q.answers || [])
+          q.ask || '', q.text || '', q.keypoint || '', ...(q.answers || [])
         ].join(' ').toLowerCase();
         if (!hay.includes(currentKeyword)) return;
       }
@@ -572,7 +573,6 @@ function renderCurrentPaper() {
       qDiv.appendChild(headRow);
       qDiv.appendChild(ansDiv);
 
-      // 听力原文（默认折叠）
       if (q.original) {
         const origBlock = document.createElement('div');
         origBlock.className = 'orig-block';
@@ -582,9 +582,7 @@ function renderCurrentPaper() {
         const origContent = document.createElement('div');
         origContent.className = 'orig-content';
         origContent.textContent = q.original;
-        origToggle.addEventListener('click', () => {
-          origBlock.classList.toggle('open');
-        });
+        origToggle.addEventListener('click', () => origBlock.classList.toggle('open'));
         origBlock.appendChild(origToggle);
         origBlock.appendChild(origContent);
         qDiv.appendChild(origBlock);
@@ -593,7 +591,7 @@ function renderCurrentPaper() {
       body.appendChild(qDiv);
     });
 
-    if (body.children.length === 0) return; // 搜索无结果时隐藏整个题型
+    if (body.children.length === 0) return;
     secDiv.appendChild(header);
     secDiv.appendChild(body);
     resultDiv.appendChild(secDiv);
@@ -613,16 +611,11 @@ selectNoneBtn.addEventListener('click', () => {
   resultDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
 });
 
-/* ---------- 导出：完整 ---------- */
 exportBtn.addEventListener('click', () => {
-  const text = buildExport(false);
-  download(text, `ETS_export_${tsNow()}.txt`);
+  download(buildExport(false), `ETS_export_${tsNow()}.txt`);
 });
-
-/* ---------- 导出：只含答案 ---------- */
 exportAnsBtn.addEventListener('click', () => {
-  const text = buildExport(true);
-  download(text, `ETS_answers_${tsNow()}.txt`);
+  download(buildExport(true), `ETS_answers_${tsNow()}.txt`);
 });
 
 function buildExport(onlyAnswers) {
@@ -634,17 +627,12 @@ function buildExport(onlyAnswers) {
     out += `导出试卷数：${checkedPapers.size} / ${allPapers.length}\n`;
     out += '='.repeat(50) + '\n\n';
   }
-
   allPapers.forEach((paper, pi) => {
     if (!checkedPapers.has(pi)) return;
     const isCurrent = pi === currentPaperIdx;
-
     if (!onlyAnswers) {
-      out += `\n${'#'.repeat(50)}\n`;
-      out += `# 试卷 ${paper.paperId || '未知'}\n`;
-      out += `${'#'.repeat(50)}\n\n`;
+      out += `\n${'#'.repeat(50)}\n# 试卷 ${paper.paperId || '未知'}\n${'#'.repeat(50)}\n\n`;
     }
-
     paper.sections.forEach((sec, si) => {
       let checkedQs = [];
       if (isCurrent) {
@@ -658,33 +646,21 @@ function buildExport(onlyAnswers) {
         checkedQs = sec.questions.slice();
       }
       if (!checkedQs.length) return;
-
       if (!onlyAnswers) {
-        out += `【${sec.name}】 ${sec.score} 分\n`;
-        out += '-'.repeat(50) + '\n';
+        out += `【${sec.name}】 ${sec.score} 分\n` + '-'.repeat(50) + '\n';
       }
-
       checkedQs.forEach((q, i) => {
         if (onlyAnswers) {
-          if (sec.type === 'read') {
-            out += `${q.text}\n\n`;
-          } else if (sec.type === 'picture') {
-            out += `${q.text}\n\n`;
-          } else {
-            q.answers.forEach((a) => { out += `${a}\n`; });
+          if (sec.type === 'read' || sec.type === 'picture') out += `${q.text}\n\n`;
+          else {
+            q.answers.forEach(a => { out += `${a}\n`; });
             out += '\n';
           }
         } else {
           out += `\n${i + 1}. ${q.ask || ''}\n`;
-          if (sec.type === 'read') {
-            out += `${q.text}\n`;
-          } else if (sec.type === 'picture') {
-            out += `复述要点：\n${q.keypoint}\n\n参考原文：\n${q.text}\n`;
-          } else {
-            q.answers.forEach((a, j) => {
-              out += `   ${j + 1}. ${a}\n`;
-            });
-          }
+          if (sec.type === 'read') out += `${q.text}\n`;
+          else if (sec.type === 'picture') out += `复述要点：\n${q.keypoint}\n\n参考原文：\n${q.text}\n`;
+          else q.answers.forEach((a, j) => { out += `   ${j + 1}. ${a}\n`; });
         }
       });
       if (!onlyAnswers) out += '\n';
@@ -706,7 +682,6 @@ function tsNow() {
   return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 }
 
-/* ---------- 核心解析 ---------- */
 function parseAllPapers(uploaded) {
   const files = Object.keys(uploaded);
   const paperGroups = {};
@@ -718,15 +693,11 @@ function parseAllPapers(uploaded) {
       if (/^\d{6}$/.test(parts[i])) { paperId = parts[i]; break; }
     }
     if (!paperId) return;
-
     if (!paperGroups[paperId]) paperGroups[paperId] = { files: {}, res: null };
-
     const fname = parts[parts.length - 1];
     const dir = parts[parts.length - 2];
-
-    if (fname === 'res.json') {
-      paperGroups[paperId].res = uploaded[k];
-    } else if (/^content_\d+$/.test(dir)) {
+    if (fname === 'res.json') paperGroups[paperId].res = uploaded[k];
+    else if (/^content_\d+$/.test(dir)) {
       const stid = dir.replace('content_', '');
       if (!paperGroups[paperId].files[stid]) paperGroups[paperId].files[stid] = {};
       const json = uploaded[k];
@@ -740,10 +711,8 @@ function parseAllPapers(uploaded) {
   Object.keys(paperGroups).sort().forEach(paperId => {
     const g = paperGroups[paperId];
     if (!g.res) return;
-
     const stidMap = g.files;
     const allStids = Object.keys(stidMap).sort((a,b)=>a-b);
-
     const sections = [];
     let totalQuestions = 0;
     let stidIndex = 0;
@@ -755,11 +724,8 @@ function parseAllPapers(uploaded) {
         const content = data.content || data.content2 || {};
         const structure = content.structure_type || et.exam_type_collect;
 
-        // 听力原文
         let original = '';
-        if (content.info && content.info.value) {
-          original = stripHtml(content.info.value);
-        }
+        if (content.info && content.info.value) original = stripHtml(content.info.value);
 
         const sec = {
           name: et.exam_type_name,
@@ -771,11 +737,7 @@ function parseAllPapers(uploaded) {
 
         if (structure === 'collector.read') {
           sec.type = 'read';
-          sec.questions.push({
-            ask: '朗读短文',
-            text: stripHtml(content.info?.value || ''),
-            original: ''
-          });
+          sec.questions.push({ ask: '朗读短文', text: stripHtml(content.info?.value || ''), original: '' });
         } else if (structure === 'collector.picture') {
           sec.type = 'picture';
           sec.questions.push({
@@ -789,22 +751,15 @@ function parseAllPapers(uploaded) {
           (content.info?.question || []).forEach(q => {
             const askClean = cleanAsk(q.ask || '');
             const answers = (q.std || []).slice(0, 5).map(s => stripHtml(s.value));
-            sec.questions.push({
-              ask: askClean,
-              answers,
-              original: original   // 整段听力原文附在每道题下
-            });
+            sec.questions.push({ ask: askClean, answers, original });
           });
         }
-
         totalQuestions += sec.questions.length;
         sections.push(sec);
       });
     });
-
     papers.push({ paperId, sections, totalQuestions });
   });
-
   return papers;
 }
 
@@ -816,10 +771,7 @@ function cleanAsk(ask) {
 }
 
 function escapeHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function stripHtml(s) {
