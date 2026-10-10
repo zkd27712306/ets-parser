@@ -417,7 +417,7 @@ function renderCurrentPaper() {
         ansDiv.innerHTML = `<div class="read-text">${escapeHtml(q.text)}</div>`;
       } else if (sec.type === 'picture') {
         ansDiv.innerHTML = `
-          <div class="pic-key"><strong>复述要点：</strong><br>${escapeHtml(q.keypoint)}</div>
+          <div class="pic-key"><strong>复述要点：</strong><br>${formatKeypointHtml(q.keypoint)}</div>
           <div class="pic-text"><strong>参考原文：</strong><br>${escapeHtml(q.text)}</div>
         `;
       } else if (sec.type === 'word') {
@@ -481,6 +481,16 @@ function renderCurrentPaper() {
   } else {
     searchCount.textContent = `共 ${totalCount} 题`;
   }
+}
+
+/* 复述要点：HTML 展示，序号之间空一行 */
+function formatKeypointHtml(kp) {
+  const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  return lines.map((line, idx) => {
+    const text = /^\d+\./.test(line) ? line : `${idx + 1}. ${line}`;
+    return `<div style="margin-bottom:6px;">${escapeHtml(text)}</div>`;
+  }).join('');
 }
 
 function buildSearchText(type, q) {
@@ -548,7 +558,7 @@ function buildExport(onlyAnswers) {
           if (sec.type === 'read') {
             out += `\n朗读短文：\n${q.text}\n`;
           } else if (sec.type === 'picture') {
-            out += `\n复述要点：\n${formatKeypoint(q.keypoint)}\n参考原文：\n${q.text}\n`;
+            out += `\n复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
           } else if (sec.type === 'word') {
             out += `\n${q.word}\n`;
             if (q.translate) out += `${q.translate}\n`;
@@ -568,7 +578,7 @@ function buildExport(onlyAnswers) {
           if (sec.type === 'read') {
             out += `${q.text}\n`;
           } else if (sec.type === 'picture') {
-            out += `复述要点：\n${formatKeypoint(q.keypoint)}\n参考原文：\n${q.text}\n`;
+            out += `复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
           } else if (sec.type === 'word') {
             out += `单词：${q.word}\n`;
             if (q.translate) out += `释义：${q.translate}\n`;
@@ -592,12 +602,14 @@ function buildExport(onlyAnswers) {
   return out;
 }
 
-function formatKeypoint(kp) {
+/* 复述要点：纯文本导出，序号之间空一行 */
+function formatKeypointText(kp) {
   const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return '';
   let out = '';
   lines.forEach((line, idx) => {
-    if (/^\d+\./.test(line)) out += `${line}\n`;
-    else out += `${idx + 1}. ${line}\n`;
+    const text = /^\d+\./.test(line) ? line : `${idx + 1}. ${line}`;
+    out += `${text}\n\n`;
   });
   return out;
 }
@@ -659,7 +671,6 @@ function parseAllPapers(uploaded) {
         const structure = content.structure_type || et.exam_type_collect;
         const info = content.info || {};
 
-        // 听力原文（对话/角色扮演）
         let original = '';
         if (info.value && (structure === 'collector.role' || structure === 'collector.3q5a')) {
           original = stripHtml(info.value);
@@ -688,7 +699,7 @@ function parseAllPapers(uploaded) {
             ask: '短文复述',
             keypoint: keypoint,
             text: text,
-            original: ''    // 短文复述没有独立听力原文，避免重复
+            original: ''
           });
         } else if (structure === 'collector.word') {
           sec.type = 'word';
@@ -742,7 +753,6 @@ function parseAllPapers(uploaded) {
             sec.questions.push({ ask: askClean, answers, original });
           });
         } else {
-          // 未知类型兜底
           sec.type = 'role';
           if (info.question && info.question.length) {
             info.question.forEach(q => {
@@ -783,7 +793,7 @@ function escapeHtml(s) {
 function stripHtml(s) {
   if (!s) return '';
   return String(s)
-    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?br\s*\/?>/gi, '\n')
     .replace(/<\/?p>/gi, '\n')
     .replace(/<\/?[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ')
