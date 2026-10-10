@@ -550,8 +550,7 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
-      out += `【${sec.name}】 ${sec.score} 分\n`;
-      out += '-'.repeat(50) + '\n';
+      // 不再输出【题型名】分数标题与分隔线，直接输出题目内容
 
       checkedQs.forEach((q, i) => {
         if (onlyAnswers) {
@@ -560,17 +559,18 @@ function buildExport(onlyAnswers) {
           } else if (sec.type === 'picture') {
             out += `\n复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
           } else if (sec.type === 'word') {
-            out += `\n${q.word}\n`;
-            if (q.translate) out += `${q.translate}\n`;
-            if (q.syllable) out += `${q.syllable}\n`;
+            out += `\n${i + 1}. 单词跟读\n`;
+            out += `单词：${q.word}\n`;
+            if (q.translate) out += `释义：${q.translate}\n`;
+            if (q.syllable) out += `音标：${q.syllable}\n`;
           } else if (sec.type === 'essay') {
             out += `\n${i + 1}. ${q.text}\n`;
             if (q.translate) out += `${q.translate}\n`;
           } else if (sec.type === 'dialogue') {
-            out += `\n${q.text}\n`;
+            out += `\n${i + 1}. ${q.text}\n`;
             if (q.translate) out += `${q.translate}\n`;
           } else {
-            if (q.ask) out += `\n${q.ask}\n`;
+            if (q.ask) out += `\n${i + 1}. ${q.ask}\n`;
             (q.answers || []).forEach(a => { out += `${a}\n`; });
           }
         } else {
