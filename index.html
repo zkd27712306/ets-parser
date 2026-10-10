@@ -550,50 +550,49 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
-      // 不再输出【题型名】分数标题与分隔线，直接输出题目内容
-
       checkedQs.forEach((q, i) => {
+        // 单词跟读：不显示题号，直接输出单词、释义、音标
+        if (sec.type === 'word') {
+          if (onlyAnswers) {
+            out += `\n单词：${q.word}\n`;
+            if (q.translate) out += `释义：${q.translate}\n`;
+            if (q.syllable) out += `音标：${q.syllable}\n`;
+          } else {
+            out += `\n单词：${q.word}\n`;
+            if (q.translate) out += `释义：${q.translate}\n`;
+            if (q.syllable) out += `音标：${q.syllable}\n`;
+          }
+          return;
+        }
+
+        // 短文跟读 / 对话跟读：直接输出“第 X 句”，避免与题号重复
+        if (sec.type === 'essay' || sec.type === 'dialogue') {
+          out += `\n${q.ask || ''}\n`;
+          out += `${q.text}\n`;
+          if (q.translate) out += `${onlyAnswers ? '' : '翻译：'}${q.translate}\n`;
+          return;
+        }
+
+        // 朗读短文：不显示题号
+        if (sec.type === 'read') {
+          out += `\n朗读短文：\n${q.text}\n`;
+          return;
+        }
+
+        // 短文复述：不显示题号，直接输出复述要点和参考原文
+        if (sec.type === 'picture') {
+          out += `\n复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
+          return;
+        }
+
+        // 问答 / 角色扮演：保留题号
+        out += `\n${i + 1}. ${q.ask || ''}\n`;
         if (onlyAnswers) {
-          if (sec.type === 'read') {
-            out += `\n朗读短文：\n${q.text}\n`;
-          } else if (sec.type === 'picture') {
-            out += `\n复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
-          } else if (sec.type === 'word') {
-            out += `\n${i + 1}. 单词跟读\n`;
-            out += `单词：${q.word}\n`;
-            if (q.translate) out += `释义：${q.translate}\n`;
-            if (q.syllable) out += `音标：${q.syllable}\n`;
-          } else if (sec.type === 'essay') {
-            out += `\n${i + 1}. ${q.text}\n`;
-            if (q.translate) out += `${q.translate}\n`;
-          } else if (sec.type === 'dialogue') {
-            out += `\n${i + 1}. ${q.text}\n`;
-            if (q.translate) out += `${q.translate}\n`;
-          } else {
-            if (q.ask) out += `\n${i + 1}. ${q.ask}\n`;
-            (q.answers || []).forEach(a => { out += `${a}\n`; });
-          }
+          (q.answers || []).forEach(a => { out += `${a}\n`; });
         } else {
-          out += `\n${i + 1}. ${q.ask || ''}\n`;
-          if (sec.type === 'read') {
-            out += `${q.text}\n`;
-          } else if (sec.type === 'picture') {
-            out += `复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
-          } else if (sec.type === 'word') {
-            out += `单词：${q.word}\n`;
-            if (q.translate) out += `释义：${q.translate}\n`;
-            if (q.syllable) out += `音标：${q.syllable}\n`;
-          } else if (sec.type === 'essay') {
-            out += `${q.text}\n`;
-            if (q.translate) out += `翻译：${q.translate}\n`;
-          } else if (sec.type === 'dialogue') {
-            out += `${q.text}\n`;
-            if (q.translate) out += `翻译：${q.translate}\n`;
-          } else {
-            (q.answers || []).forEach((a, j) => {
-              out += `   ${j + 1}. ${a}\n`;
-            });
-          }
+          (q.answers || []).forEach((a, j) => {
+            out += `   ${j + 1}. ${a}\n`;
+          });
         }
       });
       out += '\n';
