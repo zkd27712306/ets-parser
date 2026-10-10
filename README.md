@@ -72,7 +72,6 @@
 - 请勿将导出的试卷内容公开传播
 - 仓库中请勿提交真实试卷 JSON，避免版权与个人信息问题
 
-## 📄 License
+## 📄 许可证
 
-GNU GENERAL PUBLIC LICENSE
-Version 3, 29 June 2007
+GPL-3.0
