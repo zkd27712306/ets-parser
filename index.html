@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ETS 试卷解析器</title>
+<script>
+/* 在 CSS 解析前就决定主题，避免闪白 */
+(function () {
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (prefersDark) document.documentElement.classList.add('dark');
+})();
+</script>
 <style>
   :root {
     --bg: #f5f5f5;
@@ -32,7 +39,7 @@
     --btn-secondary-hover: #5a6268;
     --shadow: rgba(0,0,0,.1);
   }
-  body.dark {
+  html.dark {
     --bg: #1e1e1e;
     --panel: #252526;
     --fg: #e0e0e0;
@@ -285,31 +292,6 @@
 </div>
 
 <script>
-/* ========== 主题：打开页面时按系统深浅色 ========== */
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.body.classList.add('dark');
-    const btn = document.getElementById('themeBtn');
-    if (btn) btn.textContent = '☀️ 浅色';
-  } else {
-    document.body.classList.remove('dark');
-    const btn = document.getElementById('themeBtn');
-    if (btn) btn.textContent = '🌙 深色';
-  }
-}
-
-// 立即应用（body 可能还没出来，先设到 documentElement 上）
-(function () {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
-  if (prefersDark) document.documentElement.classList.add('dark');
-})();
-
-// 系统主题变化时跟随
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-  applyTheme(e.matches ? 'dark' : 'light');
-});
-
 const folderInput = document.getElementById('folderInput');
 const drop = document.getElementById('drop');
 const paperTabs = document.getElementById('paperTabs');
@@ -333,16 +315,28 @@ let currentPaperIdx = 0;
 let checkedPapers = new Set();
 let currentKeyword = '';
 
-// 页面 DOM 就绪后，把主题同步到 body 和按钮文字
-window.addEventListener('DOMContentLoaded', () => {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(prefersDark ? 'dark' : 'light');
-});
+/* ---------- 主题 ---------- */
+function applyTheme(isDark) {
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+    themeBtn.textContent = '☀️ 浅色';
+  } else {
+    document.documentElement.classList.remove('dark');
+    themeBtn.textContent = '🌙 深色';
+  }
+}
+
+// 初始状态（HTML 上已根据系统设好，这里只同步按钮文字）
+applyTheme(document.documentElement.classList.contains('dark'));
 
 // 按钮：临时切换（刷新后回到系统设置）
 themeBtn.addEventListener('click', () => {
-  const isDark = document.body.classList.contains('dark');
-  applyTheme(isDark ? 'light' : 'dark');
+  applyTheme(!document.documentElement.classList.contains('dark'));
+});
+
+// 系统主题变化时跟随
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  applyTheme(e.matches);
 });
 
 function copyPath(el) {
