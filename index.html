@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ETS 多试卷解析器</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    margin: 0; padding: 20px;
+    background: #f5f5f5; color: #333;
+  }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  .panel {
+    background: #fff; border-radius: 8px;
+    padding: 16px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  .path-box {
+    background: #f8f9fa; border-left: 4px solid #0078d7;
+    padding: 12px 16px; border-radius: 4px; margin-bottom: 12px;
+  }
+  .path-box h3 { margin: 0 0 8px; font-size: 14px; color: #0078d7; }
+  .path-item { display: flex; align-items: baseline; margin: 6px 0; font-size: 13px; }
+  .path-label { flex: 0 0 120px; color: #666; }
+  .path-value {
+    font-family: Consolas, monospace;
+    background: #eef2f7; color: #c7254e;
+    padding: 2px 8px; border-radius: 3px;
+    cursor: pointer; word-break: break-all;
+  }
+  .path-value:hover { background: #dde7f0; }
+  .tip { font-size: 12px; color: #999; margin-top: 8px; line-height: 1.6; }
+  .drop {
+    border: 2px dashed #aaa; border-radius: 8px;
+    padding: 30px 20px; text-align: center;
+    color: #666; cursor: pointer; transition: .2s;
+  }
+  .drop:hover, .drop.over { border-color: #0078d7; background: #f0f7ff; }
+  .drop input { display: none; }
+  .hint { font-size: 12px; color: #999; margin-top: 8px; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; margin-top: 12px;
+  }
+  button {
+    background: #0078d7; color: #fff;
+    border: none; border-radius: 4px;
+    padding: 8px 16px; cursor: pointer;
+    font-size: 14px;
+  }
+  button:hover { background: #0063b1; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  button.secondary { background: #6c757d; }
+  button.secondary:hover { background: #5a6268; }
+  .paper-tabs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 12px;
+  }
+  .paper-tab {
+    display: flex; align-items: center; gap: 6px;
+    background: #eef2f7; border: 2px solid transparent;
+    padding: 6px 12px; border-radius: 20px;
+    cursor: pointer; font-size: 13px;
+    transition: .15s;
+  }
+  .paper-tab:hover { background: #dde7f0; }
+  .paper-tab.active {
+    background: #0078d7; color: #fff;
+    border-color: #005a9e;
+  }
+  .paper-tab input[type=checkbox] { cursor: pointer; }
+  .paper-tab .count { font-size: 11px; opacity: .8; }
+  .section {
+    border: 1px solid #e0e0e0; border-radius: 6px;
+    margin-bottom: 12px; overflow: hidden;
+  }
+  .section-header {
+    background: #f0f7ff; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; user-select: none;
+  }
+  .section-header:hover { background: #e3f0ff; }
+  .section-header input[type=checkbox] { width: 16px; height: 16px; }
+  .section-title { font-weight: bold; font-size: 14px; }
+  .section-score { color: #666; font-size: 12px; margin-left: auto; }
+  .section-body { padding: 12px 14px; display: none; }
+  .section-body.open { display: block; }
+  .q {
+    border-left: 3px solid #0078d7;
+    padding: 8px 12px; margin-bottom: 10px;
+    background: #fafafa;
+  }
+  .q-title {
+    font-weight: bold; margin-bottom: 6px;
+    color: #333; font-size: 13px;
+  }
+  .q-answers {
+    font-size: 13px; color: #555; line-height: 1.7;
+  }
+  .q-answers .ans {
+    display: inline-block;
+    background: #e8f5e9; color: #2e7d32;
+    padding: 1px 8px; border-radius: 3px;
+    margin: 2px 4px 2px 0;
+  }
+  .read-text {
+    background: #fff8e1; padding: 10px;
+    border-radius: 4px; font-size: 13px;
+    line-height: 1.8; color: #5d4037;
+  }
+  .pic-key {
+    background: #e3f2fd; padding: 10px;
+    border-radius: 4px; font-size: 13px;
+    line-height: 1.8; color: #1565c0;
+    margin-bottom: 8px;
+  }
+  .pic-text {
+    background: #f3e5f5; padding: 10px;
+    border-radius: 4px; font-size: 13px;
+    line-height: 1.8; color: #6a1b9a;
+  }
+  .meta { font-size: 12px; color: #999; margin-top: 4px; }
+  .paper-info {
+    font-size: 13px; color: #666;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>📚 ETS 多试卷解析器</h1>
+
+<!-- ===== 通用存放位置 ===== -->
+<div class="panel">
+  <div style="font-size:14px;font-weight:bold;margin-bottom:10px;">
+    📍 ETS 数据目录存放位置（Windows）
+  </div>
+
+  <div class="path-box">
+    <div class="path-item">
+      <span class="path-label">推荐写法：</span>
+      <span class="path-value" onclick="copyPath(this)">%APPDATA%\ETS</span>
+    </div>
+    <div class="path-item">
+      <span class="path-label">等价写法：</span>
+      <span class="path-value" onclick="copyPath(this)">%USERPROFILE%\AppData\Roaming\ETS</span>
+    </div>
+    <div class="path-item">
+      <span class="path-label">系统盘写法：</span>
+      <span class="path-value" onclick="copyPath(this)">%SYSTEMDRIVE%\Users\%USERNAME%\AppData\Roaming\ETS</span>
+    </div>
+    <div class="path-item">
+      <span class="path-label">定制写法：</span>
+      <span class="path-value" onclick="copyPath(this)">%SYSTEMDRIVE%\Users\ADMIM_%USERNAME%\AppData\Roaming\ETS</span>
+    </div>
+    <div class="tip">
+      快速打开：按 <strong>Win + R</strong>，粘贴 <code>%APPDATA%\ETS</code> 回车。<br>
+      典型结构：<code>%APPDATA%\ETS\612578\content_664036\content.json</code>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 上传 ===== -->
+<div class="panel">
+  <div style="font-size:14px;font-weight:bold;margin-bottom:10px;">
+    📤 上传试卷文件夹
+  </div>
+  <div class="drop" id="drop">
+    <input type="file" id="folderInput" webkitdirectory directory multiple>
+    <div>点击选择 <strong>ETS 根目录</strong>（内含多个试卷文件夹，如 612578、612579…）</div>
+    <div class="hint">支持多套试卷，选择后自动解析</div>
+  </div>
+
+  <div class="paper-tabs" id="paperTabs" style="display:none;"></div>
+
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <button id="selectAll">全选当前试卷</button>
+    <button id="selectNone">全不选当前试卷</button>
+    <button id="exportBtn">导出 TXT</button>
+    <button id="clearBtn" class="secondary">清空</button>
+    <span class="meta" id="metaInfo"></span>
+  </div>
+</div>
+
+<div class="panel" id="resultPanel" style="display:none;">
+  <div class="paper-info" id="paperInfo"></div>
+  <div id="result"></div>
+</div>
+
+<script>
+const folderInput = document.getElementById('folderInput');
+const drop = document.getElementById('drop');
+const paperTabs = document.getElementById('paperTabs');
+const toolbar = document.getElementById('toolbar');
+const resultPanel = document.getElementById('resultPanel');
+const resultDiv = document.getElementById('result');
+const metaInfo = document.getElementById('metaInfo');
+const paperInfo = document.getElementById('paperInfo');
+const selectAllBtn = document.getElementById('selectAll');
+const selectNoneBtn = document.getElementById('selectNone');
+const exportBtn = document.getElementById('exportBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+let allPapers = [];
+let currentPaperIdx = 0;
+let checkedPapers = new Set();
+
+function copyPath(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const old = el.style.background;
+    el.style.background = '#c8e6c9';
+    setTimeout(() => el.style.background = old, 400);
+  });
+}
+
+drop.addEventListener('click', () => folderInput.click());
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', async e => {
+  e.preventDefault(); drop.classList.remove('over');
+  const items = e.dataTransfer.items;
+  if (items && items.length && items[0].webkitGetAsEntry) {
+    const entries = [];
+    for (const item of items) {
+      const entry = item.webkitGetAsEntry();
+      if (entry) entries.push(entry);
+    }
+    await readEntries(entries);
+  } else {
+    handleFiles(e.dataTransfer.files);
+  }
+});
+folderInput.addEventListener('change', e => handleFiles(e.target.files));
+
+async function readEntries(entries) {
+  const allFiles = [];
+  for (const entry of entries) await traverse(entry, '', allFiles);
+  const uploaded = {};
+  for (const f of allFiles) {
+    await new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try { uploaded[f.path] = JSON.parse(ev.target.result); } catch (e) {}
+        res();
+      };
+      reader.readAsText(f.file, 'utf-8');
+    });
+  }
+  autoParse(uploaded);
+}
+
+function traverse(entry, path, out) {
+  return new Promise(res => {
+    if (entry.isFile) {
+      entry.file(file => { out.push({ path: path + entry.name, file }); res(); });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      reader.readEntries(async results => {
+        for (const r of results) await traverse(r, path + entry.name + '/', out);
+        res();
+      });
+    } else res();
+  });
+}
+
+function handleFiles(files) {
+  const list = Array.from(files);
+  if (!list.length) return;
+  const uploaded = {};
+  let remaining = list.length;
+  list.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try { uploaded[file.webkitRelativePath] = JSON.parse(e.target.result); } catch (err) {}
+      if (--remaining === 0) autoParse(uploaded);
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+clearBtn.addEventListener('click', () => {
+  allPapers = [];
+  currentPaperIdx = 0;
+  checkedPapers.clear();
+  resultDiv.innerHTML = '';
+  paperTabs.innerHTML = '';
+  paperTabs.style.display = 'none';
+  resultPanel.style.display = 'none';
+  toolbar.style.display = 'none';
+  folderInput.value = '';
+});
+
+function autoParse(uploaded) {
+  try {
+    allPapers = parseAllPapers(uploaded);
+    if (!allPapers.length) throw new Error('未识别到任何试卷');
+    checkedPapers = new Set(allPapers.map((_, i) => i));
+    currentPaperIdx = 0;
+    renderPaperTabs();
+    renderCurrentPaper();
+    paperTabs.style.display = 'flex';
+    toolbar.style.display = 'flex';
+    resultPanel.style.display = 'block';
+  } catch (e) {
+    resultDiv.innerHTML = `<div style="color:#c00;">解析出错：${e.message}</div>`;
+    resultPanel.style.display = 'block';
+    toolbar.style.display = 'none';
+    paperTabs.style.display = 'none';
+  }
+}
+
+function renderPaperTabs() {
+  paperTabs.innerHTML = '';
+  allPapers.forEach((p, i) => {
+    const tab = document.createElement('div');
+    tab.className = 'paper-tab' + (i === currentPaperIdx ? ' active' : '');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = checkedPapers.has(i);
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', e => {
+      if (e.target.checked) checkedPapers.add(i);
+      else checkedPapers.delete(i);
+      metaInfo.textContent = `已选 ${checkedPapers.size} / ${allPapers.length} 套试卷`;
+    });
+
+    const label = document.createElement('span');
+    label.textContent = `试卷 ${p.paperId || '未知'}`;
+
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `(${p.sections.length} 题型 / ${p.totalQuestions} 题)`;
+
+    tab.appendChild(cb);
+    tab.appendChild(label);
+    tab.appendChild(count);
+
+    tab.addEventListener('click', () => {
+      currentPaperIdx = i;
+      renderPaperTabs();
+      renderCurrentPaper();
+    });
+
+    paperTabs.appendChild(tab);
+  });
+}
+
+function renderCurrentPaper() {
+  const data = allPapers[currentPaperIdx];
+  if (!data) return;
+
+  paperInfo.textContent = `当前试卷：${data.paperId || '未知'} · ${data.sections.length} 个题型 · 共 ${data.totalQuestions} 题`;
+  metaInfo.textContent = `已选 ${checkedPapers.size} / ${allPapers.length} 套试卷`;
+
+  resultDiv.innerHTML = '';
+  data.sections.forEach((sec, si) => {
+    const secDiv = document.createElement('div');
+    secDiv.className = 'section';
+
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+      <input type="checkbox" data-paper="${currentPaperIdx}" data-sec="${si}" checked>
+      <span class="section-title">${sec.name}</span>
+      <span class="section-score">${sec.score} 分 · ${sec.questions.length} 题</span>
+    `;
+    header.querySelector('input').addEventListener('change', e => {
+      secDiv.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        if (cb !== e.target) cb.checked = e.target.checked;
+      });
+    });
+    header.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT') return;
+      const body = secDiv.querySelector('.section-body');
+      body.classList.toggle('open');
+    });
+
+    const body = document.createElement('div');
+    body.className = 'section-body open';
+
+    sec.questions.forEach((q, qi) => {
+      const qDiv = document.createElement('div');
+      qDiv.className = 'q';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.paper = currentPaperIdx;
+      cb.dataset.sec = si;
+      cb.dataset.q = qi;
+
+      const title = document.createElement('div');
+      title.className = 'q-title';
+      title.textContent = q.ask || `第 ${qi + 1} 题`;
+
+      const ansDiv = document.createElement('div');
+      ansDiv.className = 'q-answers';
+
+      if (sec.type === 'read') {
+        ansDiv.innerHTML = `<div class="read-text">${escapeHtml(q.text)}</div>`;
+      } else if (sec.type === 'picture') {
+        ansDiv.innerHTML = `
+          <div class="pic-key"><strong>复述要点：</strong><br>${escapeHtml(q.keypoint)}</div>
+          <div class="pic-text"><strong>参考原文：</strong><br>${escapeHtml(q.text)}</div>
+        `;
+      } else {
+        ansDiv.innerHTML = q.answers.map(a => `<span class="ans">${escapeHtml(a)}</span>`).join('');
+      }
+
+      const headRow = document.createElement('div');
+      headRow.style.display = 'flex';
+      headRow.style.alignItems = 'center';
+      headRow.style.gap = '8px';
+      headRow.appendChild(cb);
+      headRow.appendChild(title);
+
+      qDiv.appendChild(headRow);
+      qDiv.appendChild(ansDiv);
+      body.appendChild(qDiv);
+    });
+
+    secDiv.appendChild(header);
+    secDiv.appendChild(body);
+    resultDiv.appendChild(secDiv);
+  });
+}
+
+selectAllBtn.addEventListener('click', () => {
+  resultDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+});
+selectNoneBtn.addEventListener('click', () => {
+  resultDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+});
+
+exportBtn.addEventListener('click', () => {
+  if (!allPapers.length) return;
+
+  let out = '';
+  out += `ETS 试卷解析结果\n`;
+  out += `导出时间：${new Date().toLocaleString()}\n`;
+  out += `导出试卷数：${checkedPapers.size} / ${allPapers.length}\n`;
+  out += '='.repeat(50) + '\n\n';
+
+  allPapers.forEach((paper, pi) => {
+    if (!checkedPapers.has(pi)) return;
+    const isCurrent = pi === currentPaperIdx;
+
+    out += `\n${'#'.repeat(50)}\n`;
+    out += `# 试卷 ${paper.paperId || '未知'}\n`;
+    out += `${'#'.repeat(50)}\n\n`;
+
+    paper.sections.forEach((sec, si) => {
+      let checkedQs = [];
+      if (isCurrent) {
+        const secCb = resultDiv.querySelector(`input[data-paper="${pi}"][data-sec="${si}"]`);
+        if (secCb && !secCb.checked) return;
+        sec.questions.forEach((q, qi) => {
+          const cb = resultDiv.querySelector(`input[data-paper="${pi}"][data-sec="${si}"][data-q="${qi}"]`);
+          if (cb && cb.checked) checkedQs.push(q);
+        });
+      } else {
+        checkedQs = sec.questions.slice();
+      }
+      if (!checkedQs.length) return;
+
+      out += `【${sec.name}】 ${sec.score} 分\n`;
+      out += '-'.repeat(50) + '\n';
+      checkedQs.forEach((q, i) => {
+        out += `\n${i + 1}. ${q.ask || ''}\n`;
+        if (sec.type === 'read') {
+          out += `${q.text}\n`;
+        } else if (sec.type === 'picture') {
+          out += `复述要点：\n${q.keypoint}\n\n参考原文：\n${q.text}\n`;
+        } else {
+          q.answers.forEach((a, j) => {
+            out += `   ${j + 1}. ${a}\n`;
+          });
+        }
+      });
+      out += '\n';
+    });
+  });
+
+  const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.download = `ETS_export_${ts}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+function parseAllPapers(uploaded) {
+  const files = Object.keys(uploaded);
+  const paperGroups = {};
+
+  files.forEach(k => {
+    const parts = k.split('/');
+    let paperId = null;
+    for (let i = 0; i < parts.length; i++) {
+      if (/^\d{6}$/.test(parts[i])) { paperId = parts[i]; break; }
+    }
+    if (!paperId) return;
+
+    if (!paperGroups[paperId]) paperGroups[paperId] = { files: {}, res: null };
+
+    const fname = parts[parts.length - 1];
+    const dir = parts[parts.length - 2];
+
+    if (fname === 'res.json') {
+      paperGroups[paperId].res = uploaded[k];
+    } else if (/^content_\d+$/.test(dir)) {
+      const stid = dir.replace('content_', '');
+      if (!paperGroups[paperId].files[stid]) paperGroups[paperId].files[stid] = {};
+      const json = uploaded[k];
+      if (fname.startsWith('content2')) paperGroups[paperId].files[stid].content2 = json;
+      else if (fname.startsWith('content')) paperGroups[paperId].files[stid].content = json;
+      else if (fname.startsWith('info')) paperGroups[paperId].files[stid].info = json;
+    }
+  });
+
+  const papers = [];
+  Object.keys(paperGroups).sort().forEach(paperId => {
+    const g = paperGroups[paperId];
+    if (!g.res) return;
+
+    const stidMap = g.files;
+    const allStids = Object.keys(stidMap).sort((a,b)=>a-b);
+
+    const sections = [];
+    let totalQuestions = 0;
+    let stidIndex = 0;
+
+    (g.res.exam_type_list || []).forEach(et => {
+      (et.exam_list || []).forEach(exam => {
+        const stid = allStids[stidIndex++] || '?';
+        const data = stidMap[stid] || {};
+        const content = data.content || data.content2 || {};
+        const info = data.info || {};
+        const structure = content.structure_type || et.exam_type_collect;
+
+        const sec = {
+          name: et.exam_type_name,
+          score: et.exam_type_score,
+          type: 'role',
+          questions: [],
+          stid: stid
+        };
+
+        if (structure === 'collector.read') {
+          sec.type = 'read';
+          sec.questions.push({
+            ask: '朗读短文',
+            text: stripHtml(content.info?.value || '')
+          });
+        } else if (structure === 'collector.picture') {
+          sec.type = 'picture';
+          sec.questions.push({
+            ask: '短文复述',
+            keypoint: stripHtml(content.info?.keypoint || ''),
+            text: stripHtml(content.info?.value || '')
+          });
+        } else {
+          sec.type = 'role';
+          (content.info?.question || []).forEach(q => {
+            const askClean = cleanAsk(q.ask || '');
+            const answers = (q.std || []).slice(0, 5).map(s => stripHtml(s.value));
+            sec.questions.push({ ask: askClean, answers });
+          });
+        }
+
+        totalQuestions += sec.questions.length;
+        sections.push(sec);
+      });
+    });
+
+    papers.push({ paperId, sections, totalQuestions });
+  });
+
+  return papers;
+}
+
+function cleanAsk(ask) {
+  let s = stripHtml(ask);
+  s = s.replace(/^ets_th\d+\s*/i, '');
+  s = s.replace(/^\d+\.\s*/, '');
+  return s.trim();
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function stripHtml(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?p>/gi, '\n')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+</script>
+</body>
+</html>
