@@ -1,6 +1,6 @@
 # ETS 试卷解析器
 
-一个纯前端的ETS试卷解析工具。上传 `%APPDATA%\ETS` 文件夹后，自动识别多套试卷、题型和答案，支持按试卷/题型/题目三级勾选，并导出干净的 TXT。
+一个纯前端的 ETS 试卷解析工具。上传 `%APPDATA%\ETS` 文件夹后，自动识别多套试卷、题型和答案，支持按试卷/题型/题目三级勾选，并导出干净的 TXT。
 
 ## ✨ 功能
 
@@ -43,7 +43,7 @@
 
 打开：
 
-    https://zkd27712306.github.io/ets-parser/
+[https://zkd27712306.github.io/ets-parser/](https://zkd27712306.github.io/ets-parser/)
 
 ### 本地使用
 
