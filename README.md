@@ -21,7 +21,7 @@
 | 推荐 | `%APPDATA%\ETS` |
 | 等价 | `%USERPROFILE%\AppData\Roaming\ETS` |
 | 系统盘 | `%SYSTEMDRIVE%\Users\%USERNAME%\AppData\Roaming\ETS` |
-| 定制 | `%SYSTEMDRIVE%\Users\ADMIM_%USERNAME%\AppData\Roaming\ETS` |
+| 特殊 | `%SYSTEMDRIVE%\Users\ADMIN_%USERNAME%\AppData\Roaming\ETS` |
 
 快速打开：按 `Win + R`，粘贴 `%APPDATA%\ETS` 回车。
 
