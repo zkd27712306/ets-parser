@@ -73,7 +73,12 @@
     background: var(--bg); color: var(--fg);
     transition: background .2s, color .2s;
   }
-  h1 { font-size: 20px; margin: 0 0 16px; }
+  .page-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .page-header h1 { font-size: 20px; margin: 0; }
+  .page-header button { margin-left: auto; }
   .panel {
     background: var(--panel); border-radius: 8px;
     padding: 16px; margin-bottom: 16px;
@@ -216,12 +221,14 @@
     white-space: pre-wrap;
   }
   .orig-block.open .orig-content { display: block; }
-  #themeBtn { margin-left: auto; }
 </style>
 </head>
 <body>
 
-<h1>📚 ETS 试卷解析器</h1>
+<div class="page-header">
+  <h1>📚 ETS 试卷解析器</h1>
+  <button id="themeBtn" class="secondary">🌙 深色</button>
+</div>
 
 <div class="panel repo-bar">
   🔗 项目仓库：
@@ -276,7 +283,6 @@
     <button id="exportBtn">导出 TXT</button>
     <button id="exportAnsBtn" class="secondary">只导出答案</button>
     <button id="clearBtn" class="secondary">清空</button>
-    <button id="themeBtn" class="secondary">🌙 深色</button>
     <span class="meta" id="metaInfo"></span>
   </div>
 
@@ -326,15 +332,15 @@ function applyTheme(isDark) {
   }
 }
 
-// 初始状态（HTML 上已根据系统设好，这里只同步按钮文字）
+// 初始状态：HTML 已按系统设好，这里只同步按钮文字
 applyTheme(document.documentElement.classList.contains('dark'));
 
-// 按钮：临时切换（刷新后回到系统设置）
+// 顶部按钮：上传前也能手动切换
 themeBtn.addEventListener('click', () => {
   applyTheme(!document.documentElement.classList.contains('dark'));
 });
 
-// 系统主题变化时跟随
+// 系统主题变化时跟随（手动切换后仍会被系统覆盖，刷新后回到系统）
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
   applyTheme(e.matches);
 });
