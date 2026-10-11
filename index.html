@@ -409,12 +409,17 @@ function renderCurrentPaper() {
     const secDiv = document.createElement('div');
     secDiv.className = 'section';
 
+    // 单词跟读题型不显示分数
+    const scoreText = sec.type === 'word'
+      ? `${sec.questions.length} 题`
+      : `${sec.score} 分 · ${sec.questions.length} 题`;
+
     const header = document.createElement('div');
     header.className = 'section-header';
     header.innerHTML = `
       <input type="checkbox" data-paper="${currentPaperIdx}" data-sec="${si}" checked>
       <span class="section-title">${sec.name}</span>
-      <span class="section-score">${sec.score} 分 · ${sec.questions.length} 题</span>
+      <span class="section-score">${scoreText}</span>
     `;
     header.querySelector('input').addEventListener('change', e => {
       secDiv.querySelectorAll('input[type=checkbox]').forEach(cb => {
