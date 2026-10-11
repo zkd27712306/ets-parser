@@ -595,16 +595,19 @@ function buildExport(onlyAnswers) {
 
       // ---- 只导出答案模式 ----
       if (onlyAnswers) {
-        // 单词跟读：直接输出单词（不重复题型标题）
+        // 单词跟读：单词 / 释义 / 音标 合并成一行
         if (sec.type === 'word') {
+          out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
-            out += (q.word || '') + '\n';
+            const line = [q.word, q.translate, q.syllable].filter(Boolean).join(' / ');
+            out += line + '\n';
           });
           return;
         }
 
-        // 短文跟读 / 对话跟读：输出句子原文
+        // 短文跟读 / 对话跟读：句子原文，每句一行
         if (sec.type === 'essay' || sec.type === 'dialogue') {
+          out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
             out += (q.text || '') + '\n';
           });
@@ -613,6 +616,7 @@ function buildExport(onlyAnswers) {
 
         // 朗读短文：直接正文
         if (sec.type === 'read') {
+          out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
             out += (q.text || '') + '\n';
           });
@@ -621,34 +625,32 @@ function buildExport(onlyAnswers) {
 
         // 短文复述：只输出原文（答案）
         if (sec.type === 'picture') {
+          out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
             out += (q.text || '') + '\n';
           });
           return;
         }
 
-        // 问答 / 角色扮演：只输出答案，每个答案一行
-        checkedQs.forEach(q => {
+        // 问答 / 角色扮演：题号 + 答案变体合并成一行（用 / 分隔）
+        out += `\n— ${sec.name} —\n`;
+        checkedQs.forEach((q, i) => {
           const ansList = (q.answers || []).filter(Boolean);
-          ansList.forEach(a => {
-            out += a + '\n';
-          });
+          out += `${i + 1}. ${ansList.join(' / ')}\n`;
         });
         return;
       }
 
-      // ---- 导出解析逻辑 ----
+      // ---- 导出解析逻辑（保持原样） ----
       out += `\n— ${sec.name} —\n`;
 
       checkedQs.forEach((q, i) => {
-        // 单词跟读：单词 + 释义 + 音标，压成一行
         if (sec.type === 'word') {
           const line = [q.word, q.translate, q.syllable].filter(Boolean).join('  ');
           out += `${line}\n`;
           return;
         }
 
-        // 短文跟读 / 对话跟读：句子 + 翻译
         if (sec.type === 'essay' || sec.type === 'dialogue') {
           out += `${q.text}`;
           if (q.translate) out += `（${q.translate}）`;
@@ -656,20 +658,17 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 朗读短文：直接正文
         if (sec.type === 'read') {
           out += `${q.text}\n`;
           return;
         }
 
-        // 短文复述：要点 + 原文
         if (sec.type === 'picture') {
           out += `${formatKeypointText(q.keypoint)}`;
           out += `【原文】${q.text}\n`;
           return;
         }
 
-        // 问答 / 角色扮演：题号 + 题目，答案用分号连成一行
         out += `${i + 1}. ${q.ask || ''}\n`;
         const ansList = (q.answers || []).filter(Boolean);
         if (ansList.length) {
