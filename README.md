@@ -5,7 +5,7 @@
 ## ✨ 功能
 
 - 📂 上传 ETS 根目录，自动扫描多套试卷
-- 🏷 自动识别题型（模仿朗读 / 听选信息 / 回答问题 / 短文复述 / 提问）
+- 🏷 自动识别题型（朗读短文 / 短文复述 / 单词跟读 / 短文跟读 / 对话跟读 / 问答 / 角色扮演）
 - ✅ 按试卷、题型、题目三级勾选
 - 📤 导出 TXT，支持完整导出和只导出答案
 - 🔍 关键词搜索，实时过滤题目
@@ -13,8 +13,11 @@
 - 🌙 深色模式，打开页面即按系统主题显示
 - 🌐 纯前端，数据不上传，全部在本地浏览器处理
 - 🧹 干净结果，自动去掉 `ets_th1` 前缀和重复的题目提示
+- 📱 响应式布局，窄屏设备自动换行，不溢出
 
-## 📍 ETS 数据目录位置（Windows）
+## 📍 ETS 数据目录位置
+
+### 🖥️ 电脑（Windows）
 
 | 写法 | 路径 |
 |---|---|
@@ -25,20 +28,27 @@
 
 快速打开：按 `Win + R`，粘贴 `%APPDATA%\ETS` 回车。
 
-典型结构：
+### 📱 手机（Android）
 
-    %APPDATA%\ETS\
-    └── 612578\
-        ├── content_664036\
-        │   ├── content.json
-        │   ├── content2.json
-        │   └── info.json
-        ├── content_664037\
-        ├── ...
-        └── template_661\
-            ├── res.json
-            ├── ctrl.json
-            └── info.json
+| 位置 | 路径 |
+|---|---|
+| 内部存储 | `/storage/emulated/0/Android/data/com.ets100.secondary/files/Download/ETS_secondary/resource` |
+| SD 卡 | `/sdcard/Android/data/com.ets100.secondary/files/Download/ETS_secondary/resource` |
+| 数据目录 | `/data/data/com.ets100.secondary/files/Download/ETS_secondary/resource` |
+
+> 包名 `com.ets100.secondary` 为 E听说中学的官方包名。
+
+### 典型结构
+
+    ETS\
+    └── 612578\                    ← 试卷 ID（6 位数字）
+        ├── res.json               ← 试卷结构
+        └── content_664036\        ← 每个题型一个目录
+            ├── content.json       ← 题目结构 + info
+            ├── content2.json      ← 同上（副本）
+            ├── info.json          ← 真正的数据（含音标）
+            ├── data.json          ← 模板配置
+            └── content.mp3        ← 音频
 
 ## 🚀 使用方法
 
@@ -46,7 +56,7 @@
 
 打开：
 
-[https://zkd27712306.github.io/ets-parser/](https://zkd27712306.github.io/ets-parser/)
+https://zkd27712306.github.io/ets-parser/
 
 ### 本地使用
 
@@ -60,20 +70,18 @@
 
 | 题型 | 对应结构 | 输出内容 |
 |---|---|---|
-| 模仿朗读 | `collector.read` | 朗读原文 |
-| 听选信息 | `collector.role` | 题目 + 参考答案 |
-| 回答问题 | `collector.role` | 题目 + 参考答案 |
+| 朗读短文 | `collector.read` | 朗读原文 |
 | 短文复述 | `collector.picture` | 复述要点 + 参考原文 |
-| 提问 | `collector.role` | 中文提示 + 参考问句 |
 | 单词跟读 | `collector.word` | 单词 + 释义 + 音标 |
 | 短文跟读 | `collector.repeat_essay` | 第 X 句 + 原文 + 翻译 |
 | 对话跟读 | `collector.repeat_dialogue` | 第 X 句 + 原文 + 翻译 |
+| 问答 / 角色扮演 | `collector.3q5a` / `collector.role` | 题目 + 参考答案 + 听力原文 |
 
 ## ⚠️ 注意事项
 
-- 浏览器出于安全限制，必须**手动点击选择文件夹**，无法自动读取
-- 仅支持 **Chrome / Edge**（依赖 `webkitdirectory`）
-- 解析前建议在 ETS 里**完整下载并打开**目标试卷，避免缓存错位
+- 浏览器出于安全限制，必须手动点击选择文件夹，无法自动读取
+- 仅支持 Chrome / Edge（依赖 `webkitdirectory`）
+- 解析前建议在 ETS 里完整下载并打开目标试卷，避免缓存错位
 - 本工具仅供学习研究，请勿用于违规用途
 - 请勿将导出的试卷内容公开传播
 - 仓库中请勿提交真实试卷 JSON，避免版权与个人信息问题
