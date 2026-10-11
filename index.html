@@ -593,9 +593,9 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
-      // ---- 修改点：只导出答案模式 ----
+      // ---- 只导出答案模式 ----
       if (onlyAnswers) {
-        // 单词跟读：直接输出单词（不重复题型标题，不需要任何前缀）
+        // 单词跟读：直接输出单词（不重复题型标题）
         if (sec.type === 'word') {
           checkedQs.forEach(q => {
             out += (q.word || '') + '\n';
@@ -603,7 +603,7 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 短文跟读 / 对话跟读：输出句子原文（不含翻译，因为翻译是中文；如果含翻译，通常不作为答案）
+        // 短文跟读 / 对话跟读：输出句子原文
         if (sec.type === 'essay' || sec.type === 'dialogue') {
           checkedQs.forEach(q => {
             out += (q.text || '') + '\n';
@@ -627,7 +627,7 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 问答 / 角色扮演：只输出答案（英文），不带题号和题干，多个答案用换行分隔
+        // 问答 / 角色扮演：只输出答案，每个答案一行
         checkedQs.forEach(q => {
           const ansList = (q.answers || []).filter(Boolean);
           ansList.forEach(a => {
@@ -637,7 +637,7 @@ function buildExport(onlyAnswers) {
         return;
       }
 
-      // ---- 原导出解析逻辑保持不变 ----
+      // ---- 导出解析逻辑 ----
       out += `\n— ${sec.name} —\n`;
 
       checkedQs.forEach((q, i) => {
@@ -648,7 +648,7 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 短文跟读 / 对话跟读：句子 + 翻译（翻译用括号跟在后面）
+        // 短文跟读 / 对话跟读：句子 + 翻译
         if (sec.type === 'essay' || sec.type === 'dialogue') {
           out += `${q.text}`;
           if (q.translate) out += `（${q.translate}）`;
@@ -662,7 +662,7 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 短文复述：要点 + 原文，无标签
+        // 短文复述：要点 + 原文
         if (sec.type === 'picture') {
           out += `${formatKeypointText(q.keypoint)}`;
           out += `【原文】${q.text}\n`;
@@ -682,7 +682,7 @@ function buildExport(onlyAnswers) {
   return out;
 }
 
-/* 复述要点：纯文本导出，每条一行（不再空行） */
+/* 复述要点：纯文本导出，每条一行 */
 function formatKeypointText(kp) {
   const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (!lines.length) return '';
@@ -860,12 +860,39 @@ function parseAllPapers(uploaded) {
         }
 
         if (sec.questions.length) {
-          totalQuestions += sec.questions.length;
           sections.push(sec);
         }
       });
     });
-    papers.push({ paperId, sections, totalQuestions });
+
+    // ========== 合并连续的单词跟读 section ==========
+    const mergedSections = [];
+    let pendingWordSec = null;
+    sections.forEach(sec => {
+      if (sec.type === 'word') {
+        if (pendingWordSec) {
+          pendingWordSec.questions.push(...sec.questions);
+          if (typeof pendingWordSec.score === 'number' && typeof sec.score === 'number') {
+            pendingWordSec.score += sec.score;
+          }
+        } else {
+          pendingWordSec = {
+            ...sec,
+            questions: sec.questions.slice()
+          };
+          mergedSections.push(pendingWordSec);
+        }
+      } else {
+        pendingWordSec = null;
+        mergedSections.push(sec);
+      }
+    });
+
+    // 重新统计总题数
+    let totalQ = 0;
+    mergedSections.forEach(s => totalQ += s.questions.length);
+
+    papers.push({ paperId, sections: mergedSections, totalQuestions: totalQ });
   });
   return papers;
 }
