@@ -48,7 +48,6 @@
             ├── content2.json      ← 同上（副本）
             ├── info.json          ← 真正的数据（含音标）
             ├── data.json          ← 模板配置
-            └── content.mp3        ← 音频
 
 ## 🚀 使用方法
 
