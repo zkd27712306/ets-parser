@@ -113,6 +113,8 @@
   .orig-block.open .orig-toggle::before { transform: rotate(90deg); }
   .orig-content { display: none; padding: 10px 12px; font-size: 13px; line-height: 1.8; color: var(--muted); background: var(--panel); white-space: pre-wrap; word-break: break-word; }
   .orig-block.open .orig-content { display: block; }
+  .path-os-title { font-size: 13px; font-weight: bold; color: var(--accent); margin: 12px 0 6px; }
+  .path-os-title:first-child { margin-top: 0; }
 
   /* ---------- 移动端适配 ---------- */
   @media (max-width: 640px) {
@@ -156,14 +158,39 @@
 
 <div class="panel">
   <div style="font-size:14px;font-weight:bold;margin-bottom:10px;">
-    📍 ETS 数据目录存放位置（Windows）
+    📍 ETS 数据目录存放位置
   </div>
+
+  <div class="path-os-title">🖥️ 电脑（Windows）</div>
   <div class="path-box">
     <div class="path-item"><span class="path-label">推荐写法：</span><span class="path-value" onclick="copyPath(this)">%APPDATA%\ETS</span></div>
     <div class="path-item"><span class="path-label">等价写法：</span><span class="path-value" onclick="copyPath(this)">%USERPROFILE%\AppData\Roaming\ETS</span></div>
     <div class="path-item"><span class="path-label">系统盘写法：</span><span class="path-value" onclick="copyPath(this)">%SYSTEMDRIVE%\Users\%USERNAME%\AppData\Roaming\ETS</span></div>
     <div class="path-item"><span class="path-label">特殊写法：</span><span class="path-value" onclick="copyPath(this)">%SYSTEMDRIVE%\Users\ADMIN_%USERNAME%\AppData\Roaming\ETS</span></div>
     <div class="tip">快速打开：按 <strong>Win + R</strong>，粘贴 <code>%APPDATA%\ETS</code> 回车。<br>典型结构：<code>%APPDATA%\ETS\612578\content_664036\content.json</code></div>
+  </div>
+
+  <div class="path-os-title">📱 手机（Android）</div>
+  <div class="path-box">
+    <div class="path-item"><span class="path-label">内部存储：</span><span class="path-value" onclick="copyPath(this)">/storage/emulated/0/Android/data/&lt;ETS包名&gt;/files/ETS</span></div>
+    <div class="path-item"><span class="path-label">SD 卡：</span><span class="path-value" onclick="copyPath(this)">/sdcard/Android/data/&lt;ETS包名&gt;/files/ETS</span></div>
+    <div class="path-item"><span class="path-label">数据目录：</span><span class="path-value" onclick="copyPath(this)">/data/data/&lt;ETS包名&gt;/files/ETS</span></div>
+    <div class="tip">⚠️ Android 11+ 系统限制了 <code>Android/data</code> 的访问，普通文件管理器进不去。<br>需要用 <strong>MT管理器</strong>、<strong>Solid Explorer</strong> 等支持访问的 App，或系统自带"文件"应用的授权入口。<br><code>/data/data/</code> 需要 root 才能访问。</div>
+  </div>
+
+  <div class="path-os-title">📱 手机（iOS）</div>
+  <div class="path-box">
+    <div class="path-item"><span class="path-label">沙盒目录：</span><span class="path-value" onclick="copyPath(this)">/var/mobile/Containers/Data/Application/&lt;UUID&gt;/Documents/ETS</span></div>
+    <div class="tip">⚠️ iOS 完全沙盒，普通用户无法通过文件管理器访问。<br>只能通过 App 自带的"导出 / 分享"功能拿到文件，或者用爱思助手、iMazing 等工具备份后提取。</div>
+  </div>
+
+  <div class="path-os-title">💡 通用提示</div>
+  <div class="path-box">
+    <div class="tip" style="margin-top:0;">
+      手机浏览器<strong>不支持选择文件夹</strong>，所以本工具主要在电脑上使用。<br>
+      如果要在手机上用：先把电脑上的 ETS 文件夹<strong>打包成 zip</strong> 传到手机，再用支持解压的 App 解压，然后……<br>
+      （目前本工具还不支持直接上传 zip，需要的话可以另外做一版）
+    </div>
   </div>
 </div>
 
@@ -547,23 +574,21 @@ exportAnsBtn.addEventListener('click', () => {
   download(buildExport(true), `ETS_answers_${tsNow()}.txt`);
 });
 
-/* ---------- 导出 ---------- */
+/* ---------- 导出（精简版） ---------- */
 function buildExport(onlyAnswers) {
   if (!allPapers.length) return '';
   let out = '';
 
-  out += onlyAnswers ? `ETS 试卷答案\n` : `ETS 试卷解析结果\n`;
-  out += `导出时间：${new Date().toLocaleString()}\n`;
-  out += `导出试卷数：${checkedPapers.size} / ${allPapers.length}\n`;
-  out += '='.repeat(50) + '\n\n';
+  // 极简头部：只保留必要信息
+  out += `ETS 试卷${onlyAnswers ? '答案' : '解析'}\n`;
+  out += `导出：${new Date().toLocaleString()}  |  试卷数：${checkedPapers.size}/${allPapers.length}\n`;
+  out += '='.repeat(40) + '\n';
 
   allPapers.forEach((paper, pi) => {
     if (!checkedPapers.has(pi)) return;
     const isCurrent = pi === currentPaperIdx;
 
-    out += `\n${'#'.repeat(50)}\n`;
-    out += `# 试卷 ${paper.paperId || '未知'}\n`;
-    out += `${'#'.repeat(50)}\n\n`;
+    out += `\n【试卷 ${paper.paperId || '未知'}】\n`;
 
     paper.sections.forEach((sec, si) => {
       let checkedQs = [];
@@ -579,43 +604,47 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
+      // 题型小标题
+      out += `\n— ${sec.name} —\n`;
+
       checkedQs.forEach((q, i) => {
-        // 单词跟读：不显示题号，直接输出单词、释义、音标
+        // 单词跟读：单词 + 释义 + 音标，压成一行
         if (sec.type === 'word') {
-          out += `\n单词：${q.word}\n`;
-          if (q.translate) out += `释义：${q.translate}\n`;
-          if (q.syllable) out += `音标：${q.syllable}\n`;
+          const line = [q.word, q.translate, q.syllable].filter(Boolean).join('  ');
+          out += `${line}\n`;
           return;
         }
 
-        // 短文跟读 / 对话跟读：直接输出“第 X 句”，避免与题号重复
+        // 短文跟读 / 对话跟读：句子 + 翻译（翻译用括号跟在后面）
         if (sec.type === 'essay' || sec.type === 'dialogue') {
-          out += `\n${q.ask || ''}\n`;
-          out += `${q.text}\n`;
-          if (q.translate) out += `${onlyAnswers ? '' : '翻译：'}${q.translate}\n`;
+          out += `${q.text}`;
+          if (q.translate) out += `（${q.translate}）`;
+          out += '\n';
           return;
         }
 
-        // 朗读短文：不显示题号
+        // 朗读短文：直接正文
         if (sec.type === 'read') {
-          out += `\n朗读短文：\n${q.text}\n`;
+          out += `${q.text}\n`;
           return;
         }
 
-        // 短文复述：不显示题号，直接输出复述要点和参考原文
+        // 短文复述：要点 + 原文，无标签
         if (sec.type === 'picture') {
-          out += `\n复述要点：\n${formatKeypointText(q.keypoint)}参考原文：\n${q.text}\n`;
+          out += `${formatKeypointText(q.keypoint)}`;
+          out += `【原文】${q.text}\n`;
           return;
         }
 
-        // 问答 / 角色扮演：保留题号
-        out += `\n${i + 1}. ${q.ask || ''}\n`;
-        if (onlyAnswers) {
-          (q.answers || []).forEach(a => { out += `${a}\n`; });
-        } else {
-          (q.answers || []).forEach((a, j) => {
-            out += `   ${j + 1}. ${a}\n`;
-          });
+        // 问答 / 角色扮演：题号 + 题目，答案用分号连成一行
+        out += `${i + 1}. ${q.ask || ''}\n`;
+        const ansList = (q.answers || []).filter(Boolean);
+        if (ansList.length) {
+          if (onlyAnswers) {
+            out += `${ansList.join('  /  ')}\n`;
+          } else {
+            out += `   ${ansList.join('  /  ')}\n`;
+          }
         }
       });
       out += '\n';
@@ -624,16 +653,14 @@ function buildExport(onlyAnswers) {
   return out;
 }
 
-/* 复述要点：纯文本导出，序号之间空一行 */
+/* 复述要点：纯文本导出，每条一行（不再空行） */
 function formatKeypointText(kp) {
   const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (!lines.length) return '';
-  let out = '';
-  lines.forEach((line, idx) => {
+  return lines.map((line, idx) => {
     const text = /^\d+\./.test(line) ? line : `${idx + 1}. ${line}`;
-    out += `${text}\n\n`;
-  });
-  return out;
+    return text + '\n';
+  }).join('');
 }
 
 function download(text, filename) {
@@ -704,7 +731,6 @@ function parseAllPapers(uploaded) {
         const content = data.content || data.content2 || {};
         const structure = content.structure_type || et.exam_type_collect;
         const info = content.info || {};
-        // ★ 关键修复：把 info.json 的数组转成 map
         const infoFileMap = infoArrayToMap(data.info);
 
         let original = '';
@@ -739,7 +765,6 @@ function parseAllPapers(uploaded) {
           });
         } else if (structure === 'collector.word') {
           sec.type = 'word';
-          // ★ 音标优先从 info.json 取
           sec.questions.push({
             ask: '单词跟读',
             word: stripHtml(info.value || infoFileMap.value || ''),
