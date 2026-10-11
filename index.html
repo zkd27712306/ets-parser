@@ -172,25 +172,10 @@
 
   <div class="path-os-title">📱 手机（Android）</div>
   <div class="path-box">
-    <div class="path-item"><span class="path-label">内部存储：</span><span class="path-value" onclick="copyPath(this)">/storage/emulated/0/Android/data/&lt;ETS包名&gt;/files/ETS</span></div>
-    <div class="path-item"><span class="path-label">SD 卡：</span><span class="path-value" onclick="copyPath(this)">/sdcard/Android/data/&lt;ETS包名&gt;/files/ETS</span></div>
-    <div class="path-item"><span class="path-label">数据目录：</span><span class="path-value" onclick="copyPath(this)">/data/data/&lt;ETS包名&gt;/files/ETS</span></div>
-    <div class="tip">⚠️ Android 11+ 系统限制了 <code>Android/data</code> 的访问，普通文件管理器进不去。<br>需要用 <strong>MT管理器</strong>、<strong>Solid Explorer</strong> 等支持访问的 App，或系统自带"文件"应用的授权入口。<br><code>/data/data/</code> 需要 root 才能访问。</div>
-  </div>
-
-  <div class="path-os-title">📱 手机（iOS）</div>
-  <div class="path-box">
-    <div class="path-item"><span class="path-label">沙盒目录：</span><span class="path-value" onclick="copyPath(this)">/var/mobile/Containers/Data/Application/&lt;UUID&gt;/Documents/ETS</span></div>
-    <div class="tip">⚠️ iOS 完全沙盒，普通用户无法通过文件管理器访问。<br>只能通过 App 自带的"导出 / 分享"功能拿到文件，或者用爱思助手、iMazing 等工具备份后提取。</div>
-  </div>
-
-  <div class="path-os-title">💡 通用提示</div>
-  <div class="path-box">
-    <div class="tip" style="margin-top:0;">
-      手机浏览器<strong>不支持选择文件夹</strong>，所以本工具主要在电脑上使用。<br>
-      如果要在手机上用：先把电脑上的 ETS 文件夹<strong>打包成 zip</strong> 传到手机，再用支持解压的 App 解压，然后……<br>
-      （目前本工具还不支持直接上传 zip，需要的话可以另外做一版）
-    </div>
+    <div class="path-item"><span class="path-label">内部存储：</span><span class="path-value" onclick="copyPath(this)">/storage/emulated/0/Android/data/com.ets100.secondary/files/Download/ETS_secondary/resource</span></div>
+    <div class="path-item"><span class="path-label">SD 卡：</span><span class="path-value" onclick="copyPath(this)">/sdcard/Android/data/com.ets100.secondary/files/Download/ETS_secondary/resource</span></div>
+    <div class="path-item"><span class="path-label">数据目录：</span><span class="path-value" onclick="copyPath(this)">/data/data/com.ets100.secondary/files/Download/ETS_secondary/resource</span></div>
+    <div class="tip">包名 <code>com.ets100.secondary</code> 为 E听说中学的官方包名。</div>
   </div>
 </div>
 
@@ -579,7 +564,6 @@ function buildExport(onlyAnswers) {
   if (!allPapers.length) return '';
   let out = '';
 
-  // 极简头部：只保留必要信息
   out += `ETS 试卷${onlyAnswers ? '答案' : '解析'}\n`;
   out += `导出：${new Date().toLocaleString()}  |  试卷数：${checkedPapers.size}/${allPapers.length}\n`;
   out += '='.repeat(40) + '\n';
@@ -604,7 +588,6 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
-      // 题型小标题
       out += `\n— ${sec.name} —\n`;
 
       checkedQs.forEach((q, i) => {
