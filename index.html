@@ -116,6 +116,12 @@
   .path-os-title { font-size: 13px; font-weight: bold; color: var(--accent); margin: 12px 0 6px; }
   .path-os-title:first-child { margin-top: 0; }
 
+  /* 示例按钮 */
+  .demo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+  .demo-bar button { background: #2e7d32; }
+  .demo-bar button:hover { background: #1b5e20; }
+  .demo-bar .demo-hint { font-size: 12px; color: var(--faint); }
+
   /* ---------- 移动端适配 ---------- */
   @media (max-width: 640px) {
     body { padding: 12px; }
@@ -134,6 +140,7 @@
     .word-text { font-size: 14px; }
     .drop { padding: 20px 12px; font-size: 13px; }
     .drop div { word-break: break-word; }
+    .demo-bar button { flex: 1 1 100%; }
   }
   @media (max-width: 380px) {
     body { padding: 8px; }
@@ -186,6 +193,10 @@
     <div>点击选择 <strong>ETS 根目录</strong>（内含多个试卷文件夹，如 612578、612579…）</div>
     <div class="hint">支持多套试卷，选择后自动解析</div>
   </div>
+  <div class="demo-bar">
+    <button id="loadDemoBtn">🎯 加载完整示例试卷</button>
+    <span class="demo-hint">内置两套示例试卷（含单词、朗读、复述、问答、对话跟读、短文跟读等题型），点击即可体验全部功能。</span>
+  </div>
   <div class="paper-tabs" id="paperTabs" style="display:none;"></div>
   <div class="toolbar" id="toolbar" style="display:none;">
     <button id="selectAll">全选当前试卷</button>
@@ -224,6 +235,7 @@ const themeBtn = document.getElementById('themeBtn');
 const searchBar = document.getElementById('searchBar');
 const searchInput = document.getElementById('searchInput');
 const searchCount = document.getElementById('searchCount');
+const loadDemoBtn = document.getElementById('loadDemoBtn');
 
 let allPapers = [];
 let currentPaperIdx = 0;
@@ -595,7 +607,6 @@ function buildExport(onlyAnswers) {
 
       // ---- 只导出答案模式 ----
       if (onlyAnswers) {
-        // 单词跟读：单词 / 释义 / 音标 合并成一行
         if (sec.type === 'word') {
           out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
@@ -605,7 +616,6 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 短文跟读 / 对话跟读：句子原文，每句一行
         if (sec.type === 'essay' || sec.type === 'dialogue') {
           out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
@@ -614,7 +624,6 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 朗读短文：直接正文
         if (sec.type === 'read') {
           out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
@@ -623,7 +632,6 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 短文复述：只输出原文（答案）
         if (sec.type === 'picture') {
           out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
@@ -632,7 +640,6 @@ function buildExport(onlyAnswers) {
           return;
         }
 
-        // 问答 / 角色扮演：题号 + 答案变体合并成一行（用 / 分隔）
         out += `\n— ${sec.name} —\n`;
         checkedQs.forEach((q, i) => {
           const ansList = (q.answers || []).filter(Boolean);
@@ -641,7 +648,7 @@ function buildExport(onlyAnswers) {
         return;
       }
 
-      // ---- 导出解析逻辑（保持原样） ----
+      // ---- 导出解析逻辑 ----
       out += `\n— ${sec.name} —\n`;
 
       checkedQs.forEach((q, i) => {
@@ -920,6 +927,218 @@ function stripHtml(s) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/* ---------- 示例数据 ---------- */
+function buildDemoPapers() {
+  return [
+    {
+      paperId: '900001',
+      totalQuestions: 0,
+      sections: [
+        {
+          name: '单词跟读',
+          score: 10,
+          type: 'word',
+          questions: [
+            { ask: '单词跟读', word: 'panda', translate: '熊猫', syllable: '/ˈpændə/' },
+            { ask: '单词跟读', word: 'library', translate: '图书馆', syllable: '/ˈlaɪbrəri/' },
+            { ask: '单词跟读', word: 'bicycle', translate: '自行车', syllable: '/ˈbaɪsɪkl/' },
+            { ask: '单词跟读', word: 'umbrella', translate: '雨伞', syllable: '/ʌmˈbrelə/' },
+            { ask: '单词跟读', word: 'delicious', translate: '美味的', syllable: '/dɪˈlɪʃəs/' }
+          ]
+        },
+        {
+          name: '短文跟读',
+          score: 10,
+          type: 'essay',
+          questions: [
+            { ask: '第 1 句', text: 'My name is Lily and I am a middle school student.', translate: '我叫莉莉，是一名中学生。' },
+            { ask: '第 2 句', text: 'I usually get up at six thirty in the morning.', translate: '我通常在早上六点半起床。' },
+            { ask: '第 3 句', text: 'After breakfast, I go to school by bike.', translate: '吃完早饭后，我骑自行车去上学。' },
+            { ask: '第 4 句', text: 'I like English best because it is interesting.', translate: '我最喜欢英语，因为它很有趣。' },
+            { ask: '第 5 句', text: 'In the evening, I do my homework and read books.', translate: '晚上，我做作业和看书。' }
+          ]
+        },
+        {
+          name: '对话跟读',
+          score: 10,
+          type: 'dialogue',
+          questions: [
+            { ask: '第 1 句', text: 'Good morning, Tom. How are you today?', translate: '早上好，汤姆。你今天怎么样？' },
+            { ask: '第 2 句', text: 'I am fine, thank you. And you?', translate: '我很好，谢谢。你呢？' },
+            { ask: '第 3 句', text: 'I am fine too. What did you do last weekend?', translate: '我也很好。你上周末做了什么？' },
+            { ask: '第 4 句', text: 'I went to the park with my family.', translate: '我和家人去了公园。' },
+            { ask: '第 5 句', text: 'That sounds great. I wish I could go too.', translate: '听起来很棒。我希望我也能去。' }
+          ]
+        },
+        {
+          name: '朗读短文',
+          score: 10,
+          type: 'read',
+          questions: [
+            {
+              ask: '朗读短文',
+              text: 'The Great Wall is one of the most famous places in the world. It is located in the north of China and is more than 20,000 kilometers long. Every year, millions of visitors come to visit it. The Great Wall was built over 2,000 years ago to protect the country. Today it is a symbol of China and a popular tourist attraction.',
+              original: ''
+            }
+          ]
+        },
+        {
+          name: '短文复述',
+          score: 10,
+          type: 'picture',
+          questions: [
+            {
+              ask: '短文复述',
+              keypoint: '1. Last Sunday, Mike went to the zoo with his parents.\n2. They saw many animals, such as monkeys, tigers and elephants.\n3. Mike liked the monkeys best because they were funny.\n4. They took many photos and had a good time.',
+              text: 'Last Sunday, Mike went to the zoo with his parents. They saw many animals, such as monkeys, tigers and elephants. Mike liked the monkeys best because they were funny. They took many photos and had a good time.',
+              original: ''
+            }
+          ]
+        },
+        {
+          name: '角色扮演',
+          score: 10,
+          type: 'role',
+          questions: [
+            {
+              ask: 'What is your favorite subject?',
+              answers: ['My favorite subject is English.', 'I like English best.', 'English is my favorite subject.'],
+              original: 'W: Hello, Peter. What is your favorite subject at school?\nM: Hello, Mary. My favorite subject is English. I think it is very interesting and useful.\nW: Why do you like it?\nM: Because I want to travel around the world.'
+            },
+            {
+              ask: 'Why do you like English?',
+              answers: ['Because it is interesting and useful.', 'Because I want to travel around the world.', 'Because I can make more friends.'],
+              original: ''
+            },
+            {
+              ask: 'How do you learn English?',
+              answers: ['I learn English by reading and listening.', 'I often watch English movies.', 'I practice speaking every day.'],
+              original: ''
+            }
+          ]
+        }
+      ]
+    },
+    {
+      paperId: '900002',
+      totalQuestions: 0,
+      sections: [
+        {
+          name: '单词跟读',
+          score: 10,
+          type: 'word',
+          questions: [
+            { ask: '单词跟读', word: 'mountain', translate: '山', syllable: '/ˈmaʊntən/' },
+            { ask: '单词跟读', word: 'hospital', translate: '医院', syllable: '/ˈhɒspɪtl/' },
+            { ask: '单词跟读', word: 'restaurant', translate: '餐厅', syllable: '/ˈrestrɒnt/' },
+            { ask: '单词跟读', word: 'beautiful', translate: '美丽的', syllable: '/ˈbjuːtɪfl/' },
+            { ask: '单词跟读', word: 'important', translate: '重要的', syllable: '/ɪmˈpɔːtnt/' }
+          ]
+        },
+        {
+          name: '短文跟读',
+          score: 10,
+          type: 'essay',
+          questions: [
+            { ask: '第 1 句', text: 'Last summer, I went to Beijing with my family.', translate: '去年夏天，我和家人去了北京。' },
+            { ask: '第 2 句', text: 'We visited the Great Wall and the Palace Museum.', translate: '我们参观了长城和故宫。' },
+            { ask: '第 3 句', text: 'The food in Beijing was very delicious.', translate: '北京的食物非常美味。' },
+            { ask: '第 4 句', text: 'We took many photos and bought some gifts.', translate: '我们拍了很多照片，还买了一些礼物。' },
+            { ask: '第 5 句', text: 'It was a wonderful trip and I hope to go there again.', translate: '这是一次美妙的旅行，我希望再去那里。' }
+          ]
+        },
+        {
+          name: '对话跟读',
+          score: 10,
+          type: 'dialogue',
+          questions: [
+            { ask: '第 1 句', text: 'Excuse me, could you tell me the way to the library?', translate: '打扰一下，你能告诉我去图书馆的路吗？' },
+            { ask: '第 2 句', text: 'Sure. Go straight and turn left at the second crossing.', translate: '当然。直走，在第二个路口左转。' },
+            { ask: '第 3 句', text: 'Is it far from here?', translate: '离这里远吗？' },
+            { ask: '第 4 句', text: 'No, it is only about ten minutes on foot.', translate: '不远，步行大约只要十分钟。' },
+            { ask: '第 5 句', text: 'Thank you very much for your help.', translate: '非常感谢你的帮助。' }
+          ]
+        },
+        {
+          name: '朗读短文',
+          score: 10,
+          type: 'read',
+          questions: [
+            {
+              ask: '朗读短文',
+              text: 'Reading is a good habit for everyone. It can help us learn new things and open our minds. When we read books, we can travel to different places and meet different people. Reading also makes us happy and relaxed. So we should read more books in our free time.',
+              original: ''
+            }
+          ]
+        },
+        {
+          name: '短文复述',
+          score: 10,
+          type: 'picture',
+          questions: [
+            {
+              ask: '短文复述',
+              keypoint: '1. Yesterday was Sunday. Lucy and her friends went to the beach.\n2. They played volleyball and swam in the sea.\n3. At noon, they had a picnic on the sand.\n4. They went home in the afternoon and felt very happy.',
+              text: 'Yesterday was Sunday. Lucy and her friends went to the beach. They played volleyball and swam in the sea. At noon, they had a picnic on the sand. They went home in the afternoon and felt very happy.',
+              original: ''
+            }
+          ]
+        },
+        {
+          name: '角色扮演',
+          score: 10,
+          type: 'role',
+          questions: [
+            {
+              ask: 'Where did you go last Sunday?',
+              answers: ['I went to the beach with my friends.', 'I went to the park.', 'I stayed at home and read books.'],
+              original: 'W: Hi, Jack. Where did you go last Sunday?\nM: Hi, Lucy. I went to the beach with my friends. We had a great time there.\nW: What did you do there?\nM: We played volleyball, swam in the sea and had a picnic.'
+            },
+            {
+              ask: 'What did you do there?',
+              answers: ['We played volleyball and swam in the sea.', 'We had a picnic on the sand.', 'We took many photos.'],
+              original: ''
+            },
+            {
+              ask: 'How did you feel?',
+              answers: ['I felt very happy.', 'We were tired but happy.', 'It was a wonderful day.'],
+              original: ''
+            }
+          ]
+        }
+      ]
+    }
+  ];
+}
+
+/* 为示例试卷重新计算总题数 */
+function normalizeDemoPapers(papers) {
+  papers.forEach(p => {
+    let total = 0;
+    p.sections.forEach(s => total += s.questions.length);
+    p.totalQuestions = total;
+  });
+  return papers;
+}
+
+/* 加载示例 */
+function loadDemo() {
+  const papers = normalizeDemoPapers(buildDemoPapers());
+  allPapers = papers;
+  checkedPapers = new Set(allPapers.map((_, i) => i));
+  currentPaperIdx = 0;
+  currentKeyword = '';
+  searchInput.value = '';
+  renderPaperTabs();
+  renderCurrentPaper();
+  paperTabs.style.display = 'flex';
+  toolbar.style.display = 'flex';
+  searchBar.style.display = 'flex';
+  resultPanel.style.display = 'block';
+}
+
+loadDemoBtn.addEventListener('click', loadDemo);
 </script>
 </body>
 </html>
