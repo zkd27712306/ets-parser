@@ -36,7 +36,7 @@
 | SD 卡 | `/sdcard/Android/data/com.ets100.secondary/files/Download/ETS_secondary/resource` |
 | 数据目录 | `/data/data/com.ets100.secondary/files/Download/ETS_secondary/resource` |
 
-> 包名 `com.ets100.secondary` 为 E听说中学的官方包名。
+> 包名 `com.ets100.secondary` 为 ETS 的官方包名。
 
 ### 典型结构
 
