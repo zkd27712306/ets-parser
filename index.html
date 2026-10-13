@@ -190,7 +190,7 @@
   <div style="font-size:14px;font-weight:bold;margin-bottom:10px;">📤 上传试卷文件夹</div>
   <div class="drop" id="drop">
     <input type="file" id="folderInput" webkitdirectory directory multiple>
-    <div>点击选择 <strong>ETS 根目录</strong>（内含多个试卷文件夹，如 612578、612579…）</div>
+    <div>点击选择 <strong>ETS 根目录</strong>（内含多个试卷文件夹，如 612578、100108607752…）</div>
     <div class="hint">支持多套试卷，选择后自动解析</div>
   </div>
   <div class="demo-bar">
@@ -724,31 +724,77 @@ function infoArrayToMap(arr) {
   return map;
 }
 
+/* 判断某段路径是否是 content_xxx / template_xxx 结构目录 */
+function isStructDir(name) {
+  return /^(content|template)_\d+$/.test(name);
+}
+
 function parseAllPapers(uploaded) {
   const files = Object.keys(uploaded);
-  const paperGroups = {};
 
+  // ---------- 第一步：自动发现所有「试卷文件夹」 ----------
+  // 判据：该目录下存在 content_数字 或 template_数字 子目录
+  // 这样 6 位、12 位、任意位数的试卷文件夹都能识别，
+  // 而 common / clear_cache / pc_xst_dict / b1f86b... 等资源目录会被排除
+  const paperIds = new Set();
   files.forEach(k => {
     const parts = k.split('/');
-    let paperId = null;
     for (let i = 0; i < parts.length; i++) {
-      if (/^\d{6}$/.test(parts[i])) { paperId = parts[i]; break; }
+      if (isStructDir(parts[i]) && i >= 1) {
+        paperIds.add(parts[i - 1]);
+      }
     }
-    if (!paperId) return;
-    if (!paperGroups[paperId]) paperGroups[paperId] = { files: {}, res: null };
+  });
+
+  const paperGroups = {};
+  paperIds.forEach(id => { paperGroups[id] = { files: {}, res: null, resRank: 99 }; });
+
+  // ---------- 第二步：归类每个文件 ----------
+  files.forEach(k => {
+    const parts = k.split('/');
     const fname = parts[parts.length - 1];
     const dir = parts[parts.length - 2];
-    if (fname === 'res.json') paperGroups[paperId].res = uploaded[k];
-    else if (/^content_\d+$/.test(dir)) {
+
+    // 找到该文件所属的试卷文件夹
+    let paperId = null;
+    for (let i = 0; i < parts.length; i++) {
+      if (isStructDir(parts[i]) && i >= 1) {
+        const candidate = parts[i - 1];
+        if (paperIds.has(candidate)) { paperId = candidate; break; }
+      }
+    }
+    if (!paperId) return;
+
+    if (fname === 'res.json') {
+      // template 里的 res.json 更权威；同为 template 时按目录名排序取第一个
+      let rank = 50;
+      if (/^template_\d+$/.test(dir)) rank = 0;
+      else if (/^content_\d+$/.test(dir)) rank = 10;
+      if (rank < paperGroups[paperId].resRank) {
+        paperGroups[paperId].res = uploaded[k];
+        paperGroups[paperId].resRank = rank;
+      }
+      return;
+    }
+
+    if (/^content_\d+$/.test(dir)) {
       const stid = dir.replace('content_', '');
       if (!paperGroups[paperId].files[stid]) paperGroups[paperId].files[stid] = {};
       const json = uploaded[k];
       if (fname.startsWith('content2')) paperGroups[paperId].files[stid].content2 = json;
       else if (fname.startsWith('content')) paperGroups[paperId].files[stid].content = json;
       else if (fname.startsWith('info')) paperGroups[paperId].files[stid].info = json;
+    } else if (/^template_\d+$/.test(dir)) {
+      // template 里的 info/ctrl 一并存入，供后续兜底使用
+      const tstid = dir.replace('template_', '');
+      if (!paperGroups[paperId].files[tstid]) paperGroups[paperId].files[tstid] = {};
+      const json = uploaded[k];
+      if (fname.startsWith('info')) paperGroups[paperId].files[tstid].info = json;
+      else if (fname.startsWith('ctrl')) paperGroups[paperId].files[tstid].ctrl = json;
     }
   });
 
+  // ---------- 第三步：组装 sections（原有逻辑保持不变） ----------
   const papers = [];
   Object.keys(paperGroups).sort().forEach(paperId => {
     const g = paperGroups[paperId];
