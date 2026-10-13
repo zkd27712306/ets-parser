@@ -91,7 +91,7 @@
   .q { border-left: 3px solid var(--accent); padding: 8px 12px; margin-bottom: 10px; background: var(--q-bg); overflow: hidden; }
   .q-title { font-weight: bold; margin-bottom: 6px; color: var(--fg); font-size: 13px; word-break: break-word; }
   .q-answers { font-size: 13px; color: var(--muted); line-height: 1.7; }
-  .q-answers .ans { display: inline-block; background: var(--ans-bg); color: var(--ans-fg); padding: 1px 8px; border-radius: 3px; margin: 2px 4px 2px 0; }
+  .q-answers .ans { display: block; background: var(--ans-bg); color: var(--ans-fg); padding: 3px 8px; border-radius: 3px; margin: 3px 0; }
   .read-text { background: var(--read-bg); padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.8; color: var(--read-fg); word-break: break-word; }
   .pic-key { background: var(--pic-key-bg); padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.8; color: var(--pic-key-fg); margin-bottom: 8px; word-break: break-word; }
   .pic-text { background: var(--pic-text-bg); padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.8; color: var(--pic-text-fg); word-break: break-word; }
@@ -619,7 +619,7 @@ function buildExport(onlyAnswers) {
         out += `\n— ${sec.name} —\n`;
         checkedQs.forEach((q, i) => {
           const ansList = (q.answers || []).filter(Boolean);
-          out += `${i + 1}. ${ansList.join(' / ')}\n`;
+          out += `${i + 1}. ${ansList.join('\n   ')}\n`;
         });
         return;
       }
@@ -645,7 +645,9 @@ function buildExport(onlyAnswers) {
         }
         out += `${i + 1}. ${q.ask || ''}\n`;
         const ansList = (q.answers || []).filter(Boolean);
-        if (ansList.length) out += `   ${ansList.join('  /  ')}\n`;
+        if (ansList.length) {
+          ansList.forEach(a => { out += `   ${a}\n`; });
+        }
       });
       out += '\n';
     });
@@ -679,17 +681,14 @@ function tsNow() {
    解析核心
    ============================================================ */
 
-/* 兼容 Windows 的 \ 和 Unix 的 / */
 function splitPath(k) {
   return String(k || '').split(/[\\/]/);
 }
 
-/* content_xxx / template_xxx */
 function isStructDir(name) {
   return /^(content|template)_\d+$/.test(name);
 }
 
-/* info.json 数组 → {code_id: code_value} */
 function infoArrayToMap(arr) {
   const map = {};
   if (Array.isArray(arr)) {
@@ -708,7 +707,6 @@ function mergeResList(resList) {
   resList.forEach(res => {
     if (!res || !res.exam_type_list) return;
     res.exam_type_list.forEach(et => {
-      // 去重键：题型名 + collect + 分值
       const key = `${et.exam_type_name}|${et.exam_type_collect}|${et.exam_type_score}`;
       if (seen.has(key)) return;
       seen.add(key);
@@ -744,7 +742,6 @@ function parseAllPapers(uploaded) {
     const fname = parts[parts.length - 1];
     const dir = parts[parts.length - 2];
 
-    // 找到所属试卷
     let paperId = null;
     for (let i = 0; i < parts.length; i++) {
       if (isStructDir(parts[i]) && i >= 1) {
@@ -755,7 +752,6 @@ function parseAllPapers(uploaded) {
     if (!paperId) return;
 
     if (fname === 'res.json') {
-      // 收集所有 template / content 里的 res.json
       paperGroups[paperId].resList.push(uploaded[k]);
       return;
     }
@@ -782,12 +778,36 @@ function parseAllPapers(uploaded) {
 
     const stidMap = g.files;
     const allStids = Object.keys(stidMap).sort((a, b) => Number(a) - Number(b));
+
+    /* 建 structure_type → stid 映射（一个结构可能多个 content，用队列） */
+    const structQueues = {};
+    allStids.forEach(s => {
+      const c = stidMap[s].content || stidMap[s].content2 || {};
+      const st = c.structure_type;
+      if (!st) return;
+      if (!structQueues[st]) structQueues[st] = [];
+      structQueues[st].push(s);
+    });
+
+    const usedStids = new Set();
     const sections = [];
-    let stidIndex = 0;
+
+    /* 取 stid：优先按 structure_type 匹配，其次按顺序取未用的 */
+    function pickStid(needStruct) {
+      if (needStruct && structQueues[needStruct] && structQueues[needStruct].length) {
+        const s = structQueues[needStruct].shift();
+        usedStids.add(s);
+        return s;
+      }
+      for (const s of allStids) {
+        if (!usedStids.has(s)) { usedStids.add(s); return s; }
+      }
+      return '?';
+    }
 
     res.exam_type_list.forEach(et => {
       (et.exam_list || []).forEach(exam => {
-        const stid = allStids[stidIndex++] || '?';
+        const stid = pickStid(et.exam_type_collect);
         const data = stidMap[stid] || {};
         const content = data.content || data.content2 || {};
         const structure = content.structure_type || et.exam_type_collect;
@@ -816,9 +836,7 @@ function parseAllPapers(uploaded) {
           });
         } else if (structure === 'collector.picture') {
           sec.type = 'picture';
-          // keypoint：优先 info.keypoint，其次 infoFileMap.keypoint
           const keypoint = stripHtml(info.keypoint || infoFileMap.keypoint || '');
-          // 短文原文：优先 info.value，其次 infoFileMap.value
           const text = stripHtml(info.value || infoFileMap.value || '');
           sec.questions.push({
             ask: '短文复述',
@@ -879,7 +897,6 @@ function parseAllPapers(uploaded) {
           });
         } else {
           sec.type = 'role';
-          // 通用 role：有的卷子问答在 info.question，有的在 content.question
           const qList = info.question || content.question || [];
           if (qList && qList.length) {
             qList.forEach(q => {
