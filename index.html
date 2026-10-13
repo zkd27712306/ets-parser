@@ -779,7 +779,7 @@ function parseAllPapers(uploaded) {
     const stidMap = g.files;
     const allStids = Object.keys(stidMap).sort((a, b) => Number(a) - Number(b));
 
-    /* 建 structure_type → stid 映射（一个结构可能多个 content，用队列） */
+    /* 建 structure_type → stid 队列（一个结构可能多个 content） */
     const structQueues = {};
     allStids.forEach(s => {
       const c = stidMap[s].content || stidMap[s].content2 || {};
@@ -949,10 +949,15 @@ function parseAllPapers(uploaded) {
   return papers;
 }
 
+/* 清洗提问文本：去掉「请你准备第X个问题。」和行首编号 */
 function cleanAsk(ask) {
   let s = stripHtml(ask);
+  s = s.split('\n')
+       .map(line => line.trim())
+       .filter(line => line && !/^请你准备第[一二三四五六七八九十\d]+个问题。?$/.test(line))
+       .map(line => line.replace(/^\d+\.\s*/, ''))
+       .join('\n');
   s = s.replace(/^ets_th\d+\s*/i, '');
-  s = s.replace(/^\d+\.\s*/, '');
   return s.trim();
 }
 
