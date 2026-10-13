@@ -421,7 +421,6 @@ function renderCurrentPaper() {
     const secDiv = document.createElement('div');
     secDiv.className = 'section';
 
-    // 单词跟读题型不显示分数
     const scoreText = sec.type === 'word'
       ? `${sec.questions.length} 题`
       : `${sec.score} 分 · ${sec.questions.length} 题`;
@@ -541,7 +540,6 @@ function renderCurrentPaper() {
   }
 }
 
-/* 复述要点：HTML 展示，序号之间空一行 */
 function formatKeypointHtml(kp) {
   const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (!lines.length) return '';
@@ -576,7 +574,7 @@ exportAnsBtn.addEventListener('click', () => {
   download(buildExport(true), `ETS_answers_${tsNow()}.txt`);
 });
 
-/* ---------- 导出（精简版） ---------- */
+/* ---------- 导出 ---------- */
 function buildExport(onlyAnswers) {
   if (!allPapers.length) return '';
   let out = '';
@@ -605,41 +603,19 @@ function buildExport(onlyAnswers) {
       }
       if (!checkedQs.length) return;
 
-      // ---- 只导出答案模式 ----
       if (onlyAnswers) {
         if (sec.type === 'word') {
           out += `\n— ${sec.name} —\n`;
           checkedQs.forEach(q => {
-            const line = [q.word, q.translate, q.syllable].filter(Boolean).join(' / ');
-            out += line + '\n';
+            out += [q.word, q.translate, q.syllable].filter(Boolean).join(' / ') + '\n';
           });
           return;
         }
-
-        if (sec.type === 'essay' || sec.type === 'dialogue') {
+        if (['essay','dialogue','read','picture'].includes(sec.type)) {
           out += `\n— ${sec.name} —\n`;
-          checkedQs.forEach(q => {
-            out += (q.text || '') + '\n';
-          });
+          checkedQs.forEach(q => { out += (q.text || '') + '\n'; });
           return;
         }
-
-        if (sec.type === 'read') {
-          out += `\n— ${sec.name} —\n`;
-          checkedQs.forEach(q => {
-            out += (q.text || '') + '\n';
-          });
-          return;
-        }
-
-        if (sec.type === 'picture') {
-          out += `\n— ${sec.name} —\n`;
-          checkedQs.forEach(q => {
-            out += (q.text || '') + '\n';
-          });
-          return;
-        }
-
         out += `\n— ${sec.name} —\n`;
         checkedQs.forEach((q, i) => {
           const ansList = (q.answers || []).filter(Boolean);
@@ -648,39 +624,28 @@ function buildExport(onlyAnswers) {
         return;
       }
 
-      // ---- 导出解析逻辑 ----
       out += `\n— ${sec.name} —\n`;
 
       checkedQs.forEach((q, i) => {
         if (sec.type === 'word') {
-          const line = [q.word, q.translate, q.syllable].filter(Boolean).join('  ');
-          out += `${line}\n`;
+          out += [q.word, q.translate, q.syllable].filter(Boolean).join('  ') + '\n';
           return;
         }
-
         if (sec.type === 'essay' || sec.type === 'dialogue') {
           out += `${q.text}`;
           if (q.translate) out += `（${q.translate}）`;
           out += '\n';
           return;
         }
-
-        if (sec.type === 'read') {
-          out += `${q.text}\n`;
-          return;
-        }
-
+        if (sec.type === 'read') { out += `${q.text}\n`; return; }
         if (sec.type === 'picture') {
-          out += `${formatKeypointText(q.keypoint)}`;
+          out += formatKeypointText(q.keypoint);
           out += `【原文】${q.text}\n`;
           return;
         }
-
         out += `${i + 1}. ${q.ask || ''}\n`;
         const ansList = (q.answers || []).filter(Boolean);
-        if (ansList.length) {
-          out += `   ${ansList.join('  /  ')}\n`;
-        }
+        if (ansList.length) out += `   ${ansList.join('  /  ')}\n`;
       });
       out += '\n';
     });
@@ -688,7 +653,6 @@ function buildExport(onlyAnswers) {
   return out;
 }
 
-/* 复述要点：纯文本导出，每条一行 */
 function formatKeypointText(kp) {
   const lines = (kp || '').split('\n').map(s => s.trim()).filter(Boolean);
   if (!lines.length) return '';
@@ -711,9 +675,21 @@ function tsNow() {
   return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 }
 
-/* ---------- 解析 ---------- */
+/* ============================================================
+   解析核心
+   ============================================================ */
 
-/* 把 info.json 数组转成 {code_id: code_value} */
+/* 兼容 Windows 的 \ 和 Unix 的 / */
+function splitPath(k) {
+  return String(k || '').split(/[\\/]/);
+}
+
+/* content_xxx / template_xxx */
+function isStructDir(name) {
+  return /^(content|template)_\d+$/.test(name);
+}
+
+/* info.json 数组 → {code_id: code_value} */
 function infoArrayToMap(arr) {
   const map = {};
   if (Array.isArray(arr)) {
@@ -724,21 +700,34 @@ function infoArrayToMap(arr) {
   return map;
 }
 
-/* 判断某段路径是否是 content_xxx / template_xxx 结构目录 */
-function isStructDir(name) {
-  return /^(content|template)_\d+$/.test(name);
+/* 合并多个 res.json 的 exam_type_list */
+function mergeResList(resList) {
+  const merged = { exam_type_list: [] };
+  if (!resList || !resList.length) return merged;
+  const seen = new Set();
+  resList.forEach(res => {
+    if (!res || !res.exam_type_list) return;
+    res.exam_type_list.forEach(et => {
+      // 去重键：题型名 + collect + 分值
+      const key = `${et.exam_type_name}|${et.exam_type_collect}|${et.exam_type_score}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.exam_type_list.push(et);
+    });
+  });
+  merged.exam_type_list.sort((a, b) =>
+    (parseInt(a.exam_type_order) || 0) - (parseInt(b.exam_type_order) || 0)
+  );
+  return merged;
 }
 
 function parseAllPapers(uploaded) {
   const files = Object.keys(uploaded);
 
-  // ---------- 第一步：自动发现所有「试卷文件夹」 ----------
-  // 判据：该目录下存在 content_数字 或 template_数字 子目录
-  // 这样 6 位、12 位、任意位数的试卷文件夹都能识别，
-  // 而 common / clear_cache / pc_xst_dict / b1f86b... 等资源目录会被排除
+  /* ---------- 第一步：找出所有试卷文件夹 ---------- */
   const paperIds = new Set();
   files.forEach(k => {
-    const parts = k.split('/');
+    const parts = splitPath(k);
     for (let i = 0; i < parts.length; i++) {
       if (isStructDir(parts[i]) && i >= 1) {
         paperIds.add(parts[i - 1]);
@@ -747,15 +736,15 @@ function parseAllPapers(uploaded) {
   });
 
   const paperGroups = {};
-  paperIds.forEach(id => { paperGroups[id] = { files: {}, res: null, resRank: 99 }; });
+  paperIds.forEach(id => { paperGroups[id] = { files: {}, resList: [] }; });
 
-  // ---------- 第二步：归类每个文件 ----------
+  /* ---------- 第二步：归类文件 ---------- */
   files.forEach(k => {
-    const parts = k.split('/');
+    const parts = splitPath(k);
     const fname = parts[parts.length - 1];
     const dir = parts[parts.length - 2];
 
-    // 找到该文件所属的试卷文件夹
+    // 找到所属试卷
     let paperId = null;
     for (let i = 0; i < parts.length; i++) {
       if (isStructDir(parts[i]) && i >= 1) {
@@ -766,14 +755,8 @@ function parseAllPapers(uploaded) {
     if (!paperId) return;
 
     if (fname === 'res.json') {
-      // template 里的 res.json 更权威；同为 template 时按目录名排序取第一个
-      let rank = 50;
-      if (/^template_\d+$/.test(dir)) rank = 0;
-      else if (/^content_\d+$/.test(dir)) rank = 10;
-      if (rank < paperGroups[paperId].resRank) {
-        paperGroups[paperId].res = uploaded[k];
-        paperGroups[paperId].resRank = rank;
-      }
+      // 收集所有 template / content 里的 res.json
+      paperGroups[paperId].resList.push(uploaded[k]);
       return;
     }
 
@@ -784,28 +767,25 @@ function parseAllPapers(uploaded) {
       if (fname.startsWith('content2')) paperGroups[paperId].files[stid].content2 = json;
       else if (fname.startsWith('content')) paperGroups[paperId].files[stid].content = json;
       else if (fname.startsWith('info')) paperGroups[paperId].files[stid].info = json;
-    } else if (/^template_\d+$/.test(dir)) {
-      // template 里的 info/ctrl 一并存入，供后续兜底使用
-      const tstid = dir.replace('template_', '');
-      if (!paperGroups[paperId].files[tstid]) paperGroups[paperId].files[tstid] = {};
-      const json = uploaded[k];
-      if (fname.startsWith('info')) paperGroups[paperId].files[tstid].info = json;
-      else if (fname.startsWith('ctrl')) paperGroups[paperId].files[tstid].ctrl = json;
     }
   });
 
-  // ---------- 第三步：组装 sections（原有逻辑保持不变） ----------
+  /* ---------- 第三步：组装 sections ---------- */
   const papers = [];
+
   Object.keys(paperGroups).sort().forEach(paperId => {
     const g = paperGroups[paperId];
-    if (!g.res) return;
+    if (!g.resList.length) return;
+
+    const res = mergeResList(g.resList);
+    if (!res.exam_type_list.length) return;
+
     const stidMap = g.files;
-    const allStids = Object.keys(stidMap).sort((a,b)=>a-b);
+    const allStids = Object.keys(stidMap).sort((a, b) => Number(a) - Number(b));
     const sections = [];
-    let totalQuestions = 0;
     let stidIndex = 0;
 
-    (g.res.exam_type_list || []).forEach(et => {
+    res.exam_type_list.forEach(et => {
       (et.exam_list || []).forEach(exam => {
         const stid = allStids[stidIndex++] || '?';
         const data = stidMap[stid] || {};
@@ -836,7 +816,9 @@ function parseAllPapers(uploaded) {
           });
         } else if (structure === 'collector.picture') {
           sec.type = 'picture';
+          // keypoint：优先 info.keypoint，其次 infoFileMap.keypoint
           const keypoint = stripHtml(info.keypoint || infoFileMap.keypoint || '');
+          // 短文原文：优先 info.value，其次 infoFileMap.value
           const text = stripHtml(info.value || infoFileMap.value || '');
           sec.questions.push({
             ask: '短文复述',
@@ -897,8 +879,10 @@ function parseAllPapers(uploaded) {
           });
         } else {
           sec.type = 'role';
-          if (info.question && info.question.length) {
-            info.question.forEach(q => {
+          // 通用 role：有的卷子问答在 info.question，有的在 content.question
+          const qList = info.question || content.question || [];
+          if (qList && qList.length) {
+            qList.forEach(q => {
               const askClean = cleanAsk(q.ask || '');
               const answers = (q.std || []).slice(0, 5).map(s => stripHtml(s.value));
               sec.questions.push({ ask: askClean, answers, original });
@@ -917,7 +901,7 @@ function parseAllPapers(uploaded) {
       });
     });
 
-    // ========== 合并连续的单词跟读 section ==========
+    /* 合并连续的单词跟读 */
     const mergedSections = [];
     let pendingWordSec = null;
     sections.forEach(sec => {
@@ -928,10 +912,7 @@ function parseAllPapers(uploaded) {
             pendingWordSec.score += sec.score;
           }
         } else {
-          pendingWordSec = {
-            ...sec,
-            questions: sec.questions.slice()
-          };
+          pendingWordSec = { ...sec, questions: sec.questions.slice() };
           mergedSections.push(pendingWordSec);
         }
       } else {
@@ -940,12 +921,14 @@ function parseAllPapers(uploaded) {
       }
     });
 
-    // 重新统计总题数
     let totalQ = 0;
     mergedSections.forEach(s => totalQ += s.questions.length);
 
-    papers.push({ paperId, sections: mergedSections, totalQuestions: totalQ });
+    if (mergedSections.length) {
+      papers.push({ paperId, sections: mergedSections, totalQuestions: totalQ });
+    }
   });
+
   return papers;
 }
 
@@ -982,9 +965,7 @@ function buildDemoPapers() {
       totalQuestions: 0,
       sections: [
         {
-          name: '单词跟读',
-          score: 10,
-          type: 'word',
+          name: '单词跟读', score: 10, type: 'word',
           questions: [
             { ask: '单词跟读', word: 'panda', translate: '熊猫', syllable: '/ˈpændə/' },
             { ask: '单词跟读', word: 'library', translate: '图书馆', syllable: '/ˈlaɪbrəri/' },
@@ -994,9 +975,7 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '短文跟读',
-          score: 10,
-          type: 'essay',
+          name: '短文跟读', score: 10, type: 'essay',
           questions: [
             { ask: '第 1 句', text: 'My name is Lily and I am a middle school student.', translate: '我叫莉莉，是一名中学生。' },
             { ask: '第 2 句', text: 'I usually get up at six thirty in the morning.', translate: '我通常在早上六点半起床。' },
@@ -1006,9 +985,7 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '对话跟读',
-          score: 10,
-          type: 'dialogue',
+          name: '对话跟读', score: 10, type: 'dialogue',
           questions: [
             { ask: '第 1 句', text: 'Good morning, Tom. How are you today?', translate: '早上好，汤姆。你今天怎么样？' },
             { ask: '第 2 句', text: 'I am fine, thank you. And you?', translate: '我很好，谢谢。你呢？' },
@@ -1018,50 +995,32 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '朗读短文',
-          score: 10,
-          type: 'read',
-          questions: [
-            {
-              ask: '朗读短文',
-              text: 'The Great Wall is one of the most famous places in the world. It is located in the north of China and is more than 20,000 kilometers long. Every year, millions of visitors come to visit it. The Great Wall was built over 2,000 years ago to protect the country. Today it is a symbol of China and a popular tourist attraction.',
-              original: ''
-            }
-          ]
+          name: '朗读短文', score: 10, type: 'read',
+          questions: [{
+            ask: '朗读短文',
+            text: 'The Great Wall is one of the most famous places in the world. It is located in the north of China and is more than 20,000 kilometers long. Every year, millions of visitors come to visit it. The Great Wall was built over 2,000 years ago to protect the country. Today it is a symbol of China and a popular tourist attraction.',
+            original: ''
+          }]
         },
         {
-          name: '短文复述',
-          score: 10,
-          type: 'picture',
-          questions: [
-            {
-              ask: '短文复述',
-              keypoint: '1. Last Sunday, Mike went to the zoo with his parents.\n2. They saw many animals, such as monkeys, tigers and elephants.\n3. Mike liked the monkeys best because they were funny.\n4. They took many photos and had a good time.',
-              text: 'Last Sunday, Mike went to the zoo with his parents. They saw many animals, such as monkeys, tigers and elephants. Mike liked the monkeys best because they were funny. They took many photos and had a good time.',
-              original: ''
-            }
-          ]
+          name: '短文复述', score: 10, type: 'picture',
+          questions: [{
+            ask: '短文复述',
+            keypoint: '1. Last Sunday, Mike went to the zoo with his parents.\n2. They saw many animals, such as monkeys, tigers and elephants.\n3. Mike liked the monkeys best because they were funny.\n4. They took many photos and had a good time.',
+            text: 'Last Sunday, Mike went to the zoo with his parents. They saw many animals, such as monkeys, tigers and elephants. Mike liked the monkeys best because they were funny. They took many photos and had a good time.',
+            original: ''
+          }]
         },
         {
-          name: '角色扮演',
-          score: 10,
-          type: 'role',
+          name: '角色扮演', score: 10, type: 'role',
           questions: [
             {
               ask: 'What is your favorite subject?',
               answers: ['My favorite subject is English.', 'I like English best.', 'English is my favorite subject.'],
               original: 'W: Hello, Peter. What is your favorite subject at school?\nM: Hello, Mary. My favorite subject is English. I think it is very interesting and useful.\nW: Why do you like it?\nM: Because I want to travel around the world.'
             },
-            {
-              ask: 'Why do you like English?',
-              answers: ['Because it is interesting and useful.', 'Because I want to travel around the world.', 'Because I can make more friends.'],
-              original: ''
-            },
-            {
-              ask: 'How do you learn English?',
-              answers: ['I learn English by reading and listening.', 'I often watch English movies.', 'I practice speaking every day.'],
-              original: ''
-            }
+            { ask: 'Why do you like English?', answers: ['Because it is interesting and useful.', 'Because I want to travel around the world.', 'Because I can make more friends.'], original: '' },
+            { ask: 'How do you learn English?', answers: ['I learn English by reading and listening.', 'I often watch English movies.', 'I practice speaking every day.'], original: '' }
           ]
         }
       ]
@@ -1071,9 +1030,7 @@ function buildDemoPapers() {
       totalQuestions: 0,
       sections: [
         {
-          name: '单词跟读',
-          score: 10,
-          type: 'word',
+          name: '单词跟读', score: 10, type: 'word',
           questions: [
             { ask: '单词跟读', word: 'mountain', translate: '山', syllable: '/ˈmaʊntən/' },
             { ask: '单词跟读', word: 'hospital', translate: '医院', syllable: '/ˈhɒspɪtl/' },
@@ -1083,9 +1040,7 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '短文跟读',
-          score: 10,
-          type: 'essay',
+          name: '短文跟读', score: 10, type: 'essay',
           questions: [
             { ask: '第 1 句', text: 'Last summer, I went to Beijing with my family.', translate: '去年夏天，我和家人去了北京。' },
             { ask: '第 2 句', text: 'We visited the Great Wall and the Palace Museum.', translate: '我们参观了长城和故宫。' },
@@ -1095,9 +1050,7 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '对话跟读',
-          score: 10,
-          type: 'dialogue',
+          name: '对话跟读', score: 10, type: 'dialogue',
           questions: [
             { ask: '第 1 句', text: 'Excuse me, could you tell me the way to the library?', translate: '打扰一下，你能告诉我去图书馆的路吗？' },
             { ask: '第 2 句', text: 'Sure. Go straight and turn left at the second crossing.', translate: '当然。直走，在第二个路口左转。' },
@@ -1107,50 +1060,32 @@ function buildDemoPapers() {
           ]
         },
         {
-          name: '朗读短文',
-          score: 10,
-          type: 'read',
-          questions: [
-            {
-              ask: '朗读短文',
-              text: 'Reading is a good habit for everyone. It can help us learn new things and open our minds. When we read books, we can travel to different places and meet different people. Reading also makes us happy and relaxed. So we should read more books in our free time.',
-              original: ''
-            }
-          ]
+          name: '朗读短文', score: 10, type: 'read',
+          questions: [{
+            ask: '朗读短文',
+            text: 'Reading is a good habit for everyone. It can help us learn new things and open our minds. When we read books, we can travel to different places and meet different people. Reading also makes us happy and relaxed. So we should read more books in our free time.',
+            original: ''
+          }]
         },
         {
-          name: '短文复述',
-          score: 10,
-          type: 'picture',
-          questions: [
-            {
-              ask: '短文复述',
-              keypoint: '1. Yesterday was Sunday. Lucy and her friends went to the beach.\n2. They played volleyball and swam in the sea.\n3. At noon, they had a picnic on the sand.\n4. They went home in the afternoon and felt very happy.',
-              text: 'Yesterday was Sunday. Lucy and her friends went to the beach. They played volleyball and swam in the sea. At noon, they had a picnic on the sand. They went home in the afternoon and felt very happy.',
-              original: ''
-            }
-          ]
+          name: '短文复述', score: 10, type: 'picture',
+          questions: [{
+            ask: '短文复述',
+            keypoint: '1. Yesterday was Sunday. Lucy and her friends went to the beach.\n2. They played volleyball and swam in the sea.\n3. At noon, they had a picnic on the sand.\n4. They went home in the afternoon and felt very happy.',
+            text: 'Yesterday was Sunday. Lucy and her friends went to the beach. They played volleyball and swam in the sea. At noon, they had a picnic on the sand. They went home in the afternoon and felt very happy.',
+            original: ''
+          }]
         },
         {
-          name: '角色扮演',
-          score: 10,
-          type: 'role',
+          name: '角色扮演', score: 10, type: 'role',
           questions: [
             {
               ask: 'Where did you go last Sunday?',
               answers: ['I went to the beach with my friends.', 'I went to the park.', 'I stayed at home and read books.'],
               original: 'W: Hi, Jack. Where did you go last Sunday?\nM: Hi, Lucy. I went to the beach with my friends. We had a great time there.\nW: What did you do there?\nM: We played volleyball, swam in the sea and had a picnic.'
             },
-            {
-              ask: 'What did you do there?',
-              answers: ['We played volleyball and swam in the sea.', 'We had a picnic on the sand.', 'We took many photos.'],
-              original: ''
-            },
-            {
-              ask: 'How did you feel?',
-              answers: ['I felt very happy.', 'We were tired but happy.', 'It was a wonderful day.'],
-              original: ''
-            }
+            { ask: 'What did you do there?', answers: ['We played volleyball and swam in the sea.', 'We had a picnic on the sand.', 'We took many photos.'], original: '' },
+            { ask: 'How did you feel?', answers: ['I felt very happy.', 'We were tired but happy.', 'It was a wonderful day.'], original: '' }
           ]
         }
       ]
@@ -1158,7 +1093,6 @@ function buildDemoPapers() {
   ];
 }
 
-/* 为示例试卷重新计算总题数 */
 function normalizeDemoPapers(papers) {
   papers.forEach(p => {
     let total = 0;
@@ -1168,7 +1102,6 @@ function normalizeDemoPapers(papers) {
   return papers;
 }
 
-/* 加载示例 */
 function loadDemo() {
   const papers = normalizeDemoPapers(buildDemoPapers());
   allPapers = papers;
