@@ -116,6 +116,10 @@
   .path-os-title { font-size: 13px; font-weight: bold; color: var(--accent); margin: 12px 0 6px; }
   .path-os-title:first-child { margin-top: 0; }
 
+  /* 搜索高亮 */
+  mark.hl { background: #ffe066; color: #333; padding: 0 2px; border-radius: 2px; }
+  html.dark mark.hl { background: #b8860b; color: #fff; }
+
   /* 示例按钮 */
   .demo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
   .demo-bar button { background: #2e7d32; }
@@ -242,6 +246,14 @@ let currentPaperIdx = 0;
 let checkedPapers = new Set();
 let currentKeyword = '';
 
+/* ===== 跨试卷题目级勾选状态 =====
+   selection[paperIdx] = {
+     secChecked: { [secIdx]: bool },
+     qChecked:   { [secIdx]: { [qIdx]: bool } }
+   }
+*/
+let selection = {};
+
 /* ---------- 主题 ---------- */
 function applyTheme(isDark) {
   if (isDark) {
@@ -337,6 +349,7 @@ clearBtn.addEventListener('click', () => {
   allPapers = [];
   currentPaperIdx = 0;
   checkedPapers.clear();
+  selection = {};
   currentKeyword = '';
   searchInput.value = '';
   resultDiv.innerHTML = '';
@@ -353,11 +366,34 @@ searchInput.addEventListener('input', () => {
   renderCurrentPaper();
 });
 
+/* 初始化某套试卷的勾选状态（默认全选） */
+function initSelectionForPaper(paperIdx) {
+  const paper = allPapers[paperIdx];
+  if (!paper) return;
+  if (!selection[paperIdx]) {
+    selection[paperIdx] = { secChecked: {}, qChecked: {} };
+  }
+  const sel = selection[paperIdx];
+  paper.sections.forEach((sec, si) => {
+    if (sel.secChecked[si] === undefined) sel.secChecked[si] = true;
+    if (!sel.qChecked[si]) sel.qChecked[si] = {};
+    sec.questions.forEach((q, qi) => {
+      if (sel.qChecked[si][qi] === undefined) sel.qChecked[si][qi] = true;
+    });
+  });
+}
+
+function initSelectionAll() {
+  allPapers.forEach((_, i) => initSelectionForPaper(i));
+}
+
 function autoParse(uploaded) {
   try {
     allPapers = parseAllPapers(uploaded);
     if (!allPapers.length) throw new Error('未识别到任何试卷');
     checkedPapers = new Set(allPapers.map((_, i) => i));
+    selection = {};
+    initSelectionAll();
     currentPaperIdx = 0;
     renderPaperTabs();
     renderCurrentPaper();
@@ -405,10 +441,28 @@ function renderPaperTabs() {
   });
 }
 
+/* ---------- 高亮辅助 ---------- */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+/* 先 escapeHtml，再按关键词插入 <mark> */
+function highlight(text) {
+  const safe = escapeHtml(text);
+  if (!currentKeyword) return safe;
+  try {
+    const re = new RegExp('(' + escapeRegExp(currentKeyword) + ')', 'gi');
+    return safe.replace(re, '<mark class="hl">$1</mark>');
+  } catch (e) {
+    return safe;
+  }
+}
+
 /* ---------- 渲染当前试卷 ---------- */
 function renderCurrentPaper() {
   const data = allPapers[currentPaperIdx];
   if (!data) return;
+  initSelectionForPaper(currentPaperIdx);
+  const sel = selection[currentPaperIdx];
 
   paperInfo.textContent = `当前试卷：${data.paperId || '未知'} · ${data.sections.length} 个题型 · 共 ${data.totalQuestions} 题`;
   metaInfo.textContent = `已选 ${checkedPapers.size} / ${allPapers.length} 套试卷`;
@@ -428,13 +482,17 @@ function renderCurrentPaper() {
     const header = document.createElement('div');
     header.className = 'section-header';
     header.innerHTML = `
-      <input type="checkbox" data-paper="${currentPaperIdx}" data-sec="${si}" checked>
-      <span class="section-title">${sec.name}</span>
-      <span class="section-score">${scoreText}</span>
+      <input type="checkbox" data-paper="${currentPaperIdx}" data-sec="${si}" ${sel.secChecked[si] ? 'checked' : ''}>
+      <span class="section-title">${escapeHtml(sec.name)}</span>
+      <span class="section-score">${escapeHtml(scoreText)}</span>
     `;
-    header.querySelector('input').addEventListener('change', e => {
+    const headCb = header.querySelector('input');
+    headCb.addEventListener('change', e => {
+      const checked = e.target.checked;
+      sel.secChecked[si] = checked;
+      sec.questions.forEach((q, qi) => { sel.qChecked[si][qi] = checked; });
       secDiv.querySelectorAll('input[type=checkbox]').forEach(cb => {
-        if (cb !== e.target) cb.checked = e.target.checked;
+        if (cb !== e.target) cb.checked = checked;
       });
     });
     header.addEventListener('click', e => {
@@ -458,45 +516,57 @@ function renderCurrentPaper() {
       qDiv.className = 'q';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = true;
+      cb.checked = sel.qChecked[si][qi] !== false;
       cb.dataset.paper = currentPaperIdx;
       cb.dataset.sec = si;
       cb.dataset.q = qi;
 
+      cb.addEventListener('change', e => {
+        const checked = e.target.checked;
+        sel.qChecked[si][qi] = checked;
+        // 同步 section 头部：全选 / 未选 / 部分
+        const allQs = sec.questions;
+        const checkedCount = allQs.reduce((n, _, idx) =>
+          n + (sel.qChecked[si][idx] !== false ? 1 : 0), 0);
+        headCb.checked = checkedCount === allQs.length;
+        headCb.indeterminate = checkedCount > 0 && checkedCount < allQs.length;
+        sel.secChecked[si] = checkedCount > 0;
+      });
+
       const title = document.createElement('div');
       title.className = 'q-title';
-      title.textContent = q.ask || `第 ${qi + 1} 题`;
+      title.innerHTML = highlight(q.ask || `第 ${qi + 1} 题`);
 
       const ansDiv = document.createElement('div');
       ansDiv.className = 'q-answers';
 
       if (sec.type === 'read') {
-        ansDiv.innerHTML = `<div class="read-text">${escapeHtml(q.text)}</div>`;
+        ansDiv.innerHTML = `<div class="read-text">${highlight(q.text)}</div>`;
       } else if (sec.type === 'picture') {
         ansDiv.innerHTML = `
           <div class="pic-key"><strong>复述要点：</strong><br>${formatKeypointHtml(q.keypoint)}</div>
-          <div class="pic-text"><strong>参考原文：</strong><br>${escapeHtml(q.text)}</div>
+          <div class="pic-text"><strong>参考原文：</strong><br>${highlight(q.text)}</div>
         `;
       } else if (sec.type === 'word') {
         ansDiv.innerHTML = `
-          <div class="word-text">${escapeHtml(q.word)}</div>
-          ${q.translate ? `<div class="word-trans">${escapeHtml(q.translate)}</div>` : ''}
-          ${q.syllable ? `<div class="word-syl">${escapeHtml(q.syllable)}</div>` : ''}
+          <div class="word-text">${highlight(q.word)}</div>
+          ${q.translate ? `<div class="word-trans">${highlight(q.translate)}</div>` : ''}
+          ${q.syllable ? `<div class="word-syl">${highlight(q.syllable)}</div>` : ''}
         `;
       } else if (sec.type === 'essay') {
         ansDiv.innerHTML = `
-          <div class="read-text">${escapeHtml(q.text)}</div>
-          ${q.translate ? `<div class="word-trans" style="margin-top:6px;">${escapeHtml(q.translate)}</div>` : ''}
+          <div class="read-text">${highlight(q.text)}</div>
+          ${q.translate ? `<div class="word-trans" style="margin-top:6px;">${highlight(q.translate)}</div>` : ''}
         `;
       } else if (sec.type === 'dialogue') {
         ansDiv.innerHTML = `
           <div class="dialogue-line">
-            ${escapeHtml(q.text)}
-            ${q.translate ? `<div class="tr">${escapeHtml(q.translate)}</div>` : ''}
+            ${highlight(q.text)}
+            ${q.translate ? `<div class="tr">${highlight(q.translate)}</div>` : ''}
           </div>
         `;
       } else {
-        ansDiv.innerHTML = (q.answers || []).map(a => `<span class="ans">${escapeHtml(a)}</span>`).join('');
+        ansDiv.innerHTML = (q.answers || []).map(a => `<span class="ans">${highlight(a)}</span>`).join('');
       }
 
       const headRow = document.createElement('div');
@@ -517,7 +587,7 @@ function renderCurrentPaper() {
         origToggle.textContent = '📄 听力原文';
         const origContent = document.createElement('div');
         origContent.className = 'orig-content';
-        origContent.textContent = q.original;
+        origContent.innerHTML = highlight(q.original);
         origToggle.addEventListener('click', () => origBlock.classList.toggle('open'));
         origBlock.appendChild(origToggle);
         origBlock.appendChild(origContent);
@@ -531,6 +601,13 @@ function renderCurrentPaper() {
     secDiv.appendChild(header);
     secDiv.appendChild(body);
     resultDiv.appendChild(secDiv);
+
+    // 渲染后根据实际勾选数刷新 section 头部状态
+    const allQs = sec.questions;
+    const checkedCount = allQs.reduce((n, _, idx) =>
+      n + (sel.qChecked[si][idx] !== false ? 1 : 0), 0);
+    headCb.checked = checkedCount === allQs.length;
+    headCb.indeterminate = checkedCount > 0 && checkedCount < allQs.length;
   });
 
   if (currentKeyword) {
@@ -545,7 +622,7 @@ function formatKeypointHtml(kp) {
   if (!lines.length) return '';
   return lines.map((line, idx) => {
     const text = /^\d+\./.test(line) ? line : `${idx + 1}. ${line}`;
-    return `<div style="margin-bottom:6px;">${escapeHtml(text)}</div>`;
+    return `<div style="margin-bottom:6px;">${highlight(text)}</div>`;
   }).join('');
 }
 
@@ -561,10 +638,24 @@ function buildSearchText(type, q) {
 }
 
 selectAllBtn.addEventListener('click', () => {
-  resultDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+  const sel = selection[currentPaperIdx];
+  if (!sel) return;
+  const paper = allPapers[currentPaperIdx];
+  paper.sections.forEach((sec, si) => {
+    sel.secChecked[si] = true;
+    sec.questions.forEach((q, qi) => { sel.qChecked[si][qi] = true; });
+  });
+  renderCurrentPaper();
 });
 selectNoneBtn.addEventListener('click', () => {
-  resultDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+  const sel = selection[currentPaperIdx];
+  if (!sel) return;
+  const paper = allPapers[currentPaperIdx];
+  paper.sections.forEach((sec, si) => {
+    sel.secChecked[si] = false;
+    sec.questions.forEach((q, qi) => { sel.qChecked[si][qi] = false; });
+  });
+  renderCurrentPaper();
 });
 
 exportBtn.addEventListener('click', () => {
@@ -574,7 +665,16 @@ exportAnsBtn.addEventListener('click', () => {
   download(buildExport(true), `ETS_answers_${tsNow()}.txt`);
 });
 
-/* ---------- 导出 ---------- */
+/* ---------- 导出（读取跨试卷勾选状态） ---------- */
+function isQChecked(pi, si, qi) {
+  const sel = selection[pi];
+  if (!sel) return true;
+  if (sel.qChecked[si] && sel.qChecked[si][qi] !== undefined) {
+    return sel.qChecked[si][qi];
+  }
+  return sel.secChecked[si] !== false;
+}
+
 function buildExport(onlyAnswers) {
   if (!allPapers.length) return '';
   let out = '';
@@ -585,22 +685,11 @@ function buildExport(onlyAnswers) {
 
   allPapers.forEach((paper, pi) => {
     if (!checkedPapers.has(pi)) return;
-    const isCurrent = pi === currentPaperIdx;
 
     out += `\n【试卷 ${paper.paperId || '未知'}】\n`;
 
     paper.sections.forEach((sec, si) => {
-      let checkedQs = [];
-      if (isCurrent) {
-        const secCb = resultDiv.querySelector(`input[data-paper="${pi}"][data-sec="${si}"]`);
-        if (secCb && !secCb.checked) return;
-        sec.questions.forEach((q, qi) => {
-          const cb = resultDiv.querySelector(`input[data-paper="${pi}"][data-sec="${si}"][data-q="${qi}"]`);
-          if (cb && cb.checked) checkedQs.push(q);
-        });
-      } else {
-        checkedQs = sec.questions.slice();
-      }
+      const checkedQs = sec.questions.filter((q, qi) => isQChecked(pi, si, qi));
       if (!checkedQs.length) return;
 
       if (onlyAnswers) {
@@ -1119,6 +1208,8 @@ function loadDemo() {
   const papers = normalizeDemoPapers(buildDemoPapers());
   allPapers = papers;
   checkedPapers = new Set(allPapers.map((_, i) => i));
+  selection = {};
+  initSelectionAll();
   currentPaperIdx = 0;
   currentKeyword = '';
   searchInput.value = '';
